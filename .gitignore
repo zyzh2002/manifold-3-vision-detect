@@ -1,0 +1,36 @@
+# Build artifacts
+build/
+build-host/
+*.o
+*.a
+*.so
+*.dpk
+
+# Captured video streams
+*.h264
+*.nv12
+
+# IDE / editor / agent
+.vscode/
+.idea/
+.opencode/
+*.swp
+*~
+
+# crosstool-ng build artifacts
+.crosstool-ng-*.log
+x-tools/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# CMake generated
+CMakeCache.txt
+CMakeFiles/
+cmake-build-*/
+
+# DeepWiki cache
+.agents/skills/psdk-deepwiki-research/.cache/
+.agents/skills/psdk-deepwiki-research/**/__pycache__/
+.agents/skills/psdk-deepwiki-research/**/*.pyc
