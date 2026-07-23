@@ -47,3 +47,11 @@ therefore remain distinct.
 - Cache exists and `--force` was omitted: exit `2`; no network request is made.
 - Protocol, validation, parsing, ambiguous lookup, or filesystem failure: exit `1`.
 - Failed parsing or writing never replaces the previous valid cache.
+
+## Storage
+
+- Cache lives at `.agents/skills/psdk-deepwiki-research/.cache/`.
+- Directory permissions are private (`0700`); files are agent-local artifacts.
+- The cache directory is not part of the source tree and is excluded from git via the
+  repository's top-level `.gitignore`.
+- The cache may be deleted at any time; the next `pull --force` will rebuild it.

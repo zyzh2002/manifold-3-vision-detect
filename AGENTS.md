@@ -4,6 +4,7 @@ Instructions for AI coding agents working on this repository.
 
 ## Language & Style
 
+- Use English for internal reasoning and Chinese for all user-facing communication.
 - **All code comments and documentation must be in English.**
 - Chinese characters are forbidden in source files, comments, commit messages, and agent-facing docs.
 - The only exception is `README.md` which may contain Chinese for end-user readability.
@@ -54,15 +55,30 @@ cmake -B build-host -DCMAKE_BUILD_TYPE=Debug && cmake --build build-host
 
 ## PSDK API Research
 
-- **Before writing any code that uses PSDK APIs, you MUST consult the DeepWiki documentation.**
-- Use the `psdk-deepwiki-research` skill for research on `dji-sdk/Payload-SDK`.
-- The current agent may perform DeepWiki research directly or delegate it to a subagent. Before delegating, ensure the subagent can access DeepWiki through MCP. If the selected agent cannot use the DeepWiki MCP tools or cannot read the complete relevant output, terminate the research workflow; do not substitute browser, web-fetch, search, or other access methods. Use `ask` only to resolve a specific ambiguity that remains after reading the relevant chapters and local SDK sources.
-- Key pages to reference:
+- **Before writing any code that uses PSDK APIs, you MUST consult the DeepWiki documentation via the `psdk-deepwiki-research` skill.** Perform the research in the main conversation by default.
+- **Research flow (defined in the skill, do NOT skip or reorder):**
+  1. Read the wiki structure via the DeepWiki MCP tool.
+  2. Run `python3 .agents/skills/psdk-deepwiki-research/scripts/wiki-cache.py pull --force` (mandatory; `--force` is required, exit code 2 is not success).
+  3. Verify the cache with `info --json` / `ls --json`, then read every relevant chapter in full.
+  4. Cross-check the DeepWiki conclusions against local headers and samples under `third_party/psdk/`.
+  5. Only after the above, use `ask_question` to resolve any specific remaining ambiguity.
+  Never call `ask_question` first.
+- **Authoritative source rules (conflict resolution):**
+  - Use **DeepWiki** for architecture, usage patterns, callback timing, and lifecycle behavior.
+  - Use **local PSDK 3.16.0 headers** at `third_party/psdk/psdk_lib/include/` and the samples under `third_party/psdk/samples/` as the authority for version-specific facts: function signatures, enum values, struct layouts, error codes, and platform macros.
+  - When the two disagree, local headers win. Record such discrepancies in the commit message or design note; do not silently blend them into a guessed conclusion.
+- The skill requires current, validated access through the DeepWiki MCP service. Do not substitute browser, web-fetch, search, or other documentation transports when that service is unavailable.
+- Reference chapters (slugs shown for orientation only; resolve the **exact chapter name** via `wiki-cache.py ls --json` before calling `get`):
   - `1-overview` / `1.2-architecture-overview` — overall architecture
   - `3.4-live-video-streaming` — liveview API
   - `2.1-linux-aarch64-platform` — aarch64 platform specifics
-  - `5.1-os-abstraction-layer-\(osal\)` — OSAL porting
-- Do NOT guess PSDK function signatures, enum values, or callback semantics. Always verify against the deepwiki or the header files in `third_party/psdk/psdk_lib/include/`.
+  - `5.1-os-abstraction-layer-(osal)` — OSAL porting
+- Do NOT guess PSDK function signatures, enum values, or callback semantics.
+
+## General Web Research (non-PSDK)
+
+- Exa MCP and generic web search may be used for **general engineering research** such as toolchain (gcc, crosstool-ng), JetPack, Linux kernel, glibc, and third-party libraries.
+- They **must not** be used for PSDK API facts. All PSDK research is governed by the `psdk-deepwiki-research` skill and the local headers under `third_party/psdk/psdk_lib/include/`.
 
 ## Code Style
 

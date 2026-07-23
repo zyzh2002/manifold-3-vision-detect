@@ -9,7 +9,7 @@ Research `dji-sdk/Payload-SDK` from primary documentation context before using g
 
 ## Required Workflow
 
-1. Decide whether to perform the research directly or delegate it to a subagent. If delegating, ensure the subagent can access the DeepWiki MCP tools and require it to follow this workflow. Do not delegate when MCP availability is unknown.
+1. Perform this workflow in the main conversation. Do **not** delegate unless a subagent explicitly documents both (a) DeepWiki MCP access and (b) the ability to run `wiki-cache.py` and read the resulting cache files. In practice, most subagent types in this project lack (a) and (b); default to no delegation.
 
 2. Read the wiki structure first:
 
@@ -25,30 +25,42 @@ Research `dji-sdk/Payload-SDK` from primary documentation context before using g
    python3 .agents/skills/psdk-deepwiki-research/scripts/wiki-cache.py pull --force
    ```
 
+   `--force` is mandatory. A non-forced `pull` that finds an existing cache exits `2`
+   **without** contacting the MCP server, which means freshness has not been validated.
+   Never interpret exit code 2 as success. See `references/cache-format.md` for exit
+   codes.
+
    This direct client uses the same DeepWiki MCP service. It is not a browser, web fetch, search
    engine, or substitute documentation source. If the pull or validation fails, keep the old
    cache only as stale data and stop the current research workflow.
 
 4. Verify the cache and read every relevant chapter completely:
 
-   Inspect provenance and the validated chapter list:
+   a. Inspect provenance and the validated chapter list:
 
    ```
    python3 .agents/skills/psdk-deepwiki-research/scripts/wiki-cache.py info --json
    python3 .agents/skills/psdk-deepwiki-research/scripts/wiki-cache.py ls --json
    ```
 
-   Use search only to identify relevant chapters, then read each selected chapter from beginning
-   to end:
+   b. **Always** obtain the exact chapter name from `ls --json` before calling `get`.
+   Do not construct chapter names from slugs, URLs, or memory — names may contain
+   parentheses, punctuation, or CJK characters that require exact matching.
+
+   c. Use `search` only to locate candidate chapters, then feed the corresponding
+   `name` field from `ls --json` into `get`:
 
    ```
    python3 .agents/skills/psdk-deepwiki-research/scripts/wiki-cache.py search "ApiName" --json
-   python3 .agents/skills/psdk-deepwiki-research/scripts/wiki-cache.py get "Exact Chapter Name"
+   python3 .agents/skills/psdk-deepwiki-research/scripts/wiki-cache.py get "Exact Chapter Name From ls --json"
    ```
 
-   If `get` output is truncated by the host, use the chapter path from `ls --json` and read that
-   file in contiguous line ranges until all indexed lines are covered. Record the exact chapter
-   names read. Cache creation and search matches are not evidence that a chapter was read.
+   d. If `get` output is truncated by the host, use the chapter file path from
+   `ls --json` and read that file in contiguous line ranges until all indexed lines
+   are covered.
+
+   e. Record the exact chapter names read. Cache creation and search matches are not
+   evidence that a chapter was read.
 
 5. If the selected agent cannot read the structure through the host MCP tool, cannot pull and
    validate the complete wiki through the direct MCP client, or cannot read every relevant cached
@@ -69,6 +81,8 @@ Research `dji-sdk/Payload-SDK` from primary documentation context before using g
 - Delegating without confirming that the subagent can access DeepWiki through MCP.
 - Calling the host full-wiki tool and treating a truncated presentation as complete evidence.
 - Running `pull` without `--force` and assuming an existing cache was refreshed.
+- Interpreting `wiki-cache.py pull` exit code 2 (cache exists, no fetch) as a successful validation.
+- Passing a slug or URL fragment to `get` instead of the exact `name` from `ls --json`.
 - Treating cache creation, `search` results, or a content hash as proof that chapters were read.
 - Reusing an old cache without validating it against a successful current pull.
 - Falling back to browser or web-fetch tools when DeepWiki MCP access is unavailable.
