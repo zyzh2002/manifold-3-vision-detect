@@ -18,6 +18,22 @@
 
 `crosstool-ng` 仅作为备用方案：只有 NVIDIA 官方工具链出现已确认且已记录的限制时，才考虑自行构建工具链。
 
+## Agent 开发注意事项
+
+本仓库提供 PSDK 专用研究 Skill：
+
+[`psdk-deepwiki-research`](.agents/skills/psdk-deepwiki-research/SKILL.md)
+
+任何涉及 DJI Payload SDK API、生命周期、回调语义、平台适配、Liveview 或示例用法的研究和实现，在编写代码前都必须先调用该 Skill。该 Skill 要求：
+
+- 通过 DeepWiki MCP 获取并验证最新的 PSDK 文档缓存；
+- 完整阅读相关章节，而不是仅使用搜索摘要；
+- 使用本仓库 PSDK 3.16.0 的头文件和示例核对函数签名、枚举、结构体及调用顺序；
+- 本地 PSDK 3.16.0 资料与 DeepWiki 冲突时，以本地头文件和示例为准；
+- DeepWiki MCP 不可用时停止 PSDK API 研究，不使用普通网页搜索替代。
+
+Agent 还应阅读 [`AGENTS.md`](AGENTS.md)，其中包含完整的研究流程、代码规范和 Git 权限边界。
+
 ## 数据流
 
 首选路径直接使用妙算 3 支持的 PSDK ImageStream 获取 NV12 帧，避免在初始实现中增加 H.264 解码依赖：
