@@ -25,7 +25,6 @@ Linux r35.5.0. The project does not build a compiler toolchain by default.
 - Keep the toolchain outside version control. It may be installed globally or under the ignored `.local-toolchains/`
   directory.
 - Use crosstool-ng only after a concrete limitation of the NVIDIA toolchain has been demonstrated and documented.
-- Do not use GCC 11.5.0 as the default target compiler.
 - The initial inference implementation will call TensorRT and CUDA C/C++ APIs without compiling custom `.cu` files.
 
 The authoritative toolchain path is supplied through:
