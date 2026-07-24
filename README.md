@@ -103,7 +103,7 @@ export MANIFOLD3_SYSROOT="$(git rev-parse --show-toplevel)/sysroot"
 ## 初始化仓库
 
 ```bash
-git clone --recurse-submodules <repo-url>
+git clone --recurse-submodules git@github.com:zyzh2002/manifold-3-vision-detect.git
 cd manifold-3-vision-detect
 ```
 
