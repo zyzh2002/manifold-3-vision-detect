@@ -100,6 +100,33 @@ export MANIFOLD3_SYSROOT="$(git rev-parse --show-toplevel)/sysroot"
 
 完整的环境来源、依赖分类和 ELF 验证要求见 [`docs/build-environment.md`](docs/build-environment.md)。
 
+## 开发环境依赖
+
+构建本项目需要在主机上安装以下软件包：
+
+| 软件包 | 用途 |
+|---|---|
+| `git` | 克隆仓库、管理子模块 |
+| `cmake` | 构建系统（建议 ≥ 3.16） |
+| `gcc` / `g++` / `make` | 主机端编译工具链（用于单元测试等） |
+| `python3` | 辅助脚本、DeepWiki Skill |
+| `binutils` | ELF 文件分析工具（`file`、`readelf`） |
+| `aarch64-linux-gnu-binutils` | 目标端 AArch64 ELF 验证 |
+
+**Ubuntu / Debian：**
+
+```bash
+sudo apt install git cmake build-essential python3 binutils binutils-aarch64-linux-gnu
+```
+
+**Fedora / RHEL：**
+
+```bash
+sudo dnf install git cmake gcc gcc-c++ make python3 binutils binutils-aarch64-linux-gnu
+```
+
+> 交叉编译器（NVIDIA Bootlin GCC 9.3）和完整 Jetson sysroot 需单独准备，详见 [`docs/build-environment.md`](docs/build-environment.md)。
+
 ## 初始化仓库
 
 ```bash
