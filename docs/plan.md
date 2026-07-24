@@ -1,139 +1,142 @@
 # Implementation Plan
 
-## Phase 1 — Scaffold & Docs [DONE]
+This plan fixes only decisions that are required to reach the next working system. Detailed implementation choices are
+made after the preceding milestone produces target evidence.
 
-- [x] Initialize git repository
-- [x] Create directory structure with `.gitkeep` placeholders
-- [x] Add PSDK git submodule (`dji-sdk/Payload-SDK`, pinned to `3.16.0`)
-- [x] Write `.gitignore`
-- [x] Write `README.md` (Chinese)
-- [x] Write `AGENTS.md` (English, agent instructions)
-- [x] Write `docs/plan.md` (this file)
-- [x] Write `docs/architecture.md`
-- [x] Initial commit
+## Phase 1: Scaffold and Baseline Documentation [DONE]
 
-## Phase 2 — Target Baseline + PSDK Port + Video Capture
+- [x] Create the repository structure.
+- [x] Pin DJI Payload SDK 3.16.0 as a read-only submodule.
+- [x] Document the Manifold 3, Matrice 4T, JetPack, toolchain, and sysroot baselines.
+- [x] Separate confirmed constraints from deferred implementation decisions.
 
-### 2.1: Target Baseline and Minimal DPK
+## Phase 2: Reproducible Target Build
 
-- [ ] Record the actual Manifold 3 environment:
-  - OS, kernel, glibc, native GCC, and supported `GLIBCXX_*` versions
-  - CUDA, TensorRT, OpenCV, FFmpeg/GStreamer, and NVIDIA runtime package versions
-  - USB Bulk device nodes, permissions, application user, and available storage
-- [ ] Create a minimal `config/app.json` with matching application ID and firmware version
-- [ ] Build and install a minimal PSDK application as a DPK
-- [ ] Verify install, start, stop, logs, USB Bulk connectivity, and uninstall before adding capture code
+### Outcome
 
-### 2.2: Toolchain and JetPack Sysroot
+Produce a minimal AArch64 program with NVIDIA's Bootlin GCC 9.3 toolchain and the complete Jetson Linux r35.5.0
+sysroot, then run it on Manifold 3.
 
-- [ ] Install crosstool-ng on host (`apt install crosstool-ng` or build from source)
-- [ ] Create `toolchain/crosstool-ng/aarch64-manifold3.config`:
-  - Target: `aarch64-unknown-linux-gnu`
-  - GCC: `11.5.0`
-  - glibc: `2.31`
-  - Kernel headers: `5.10`
-  - CT_PREFIX_DIR: `$MANIFOLD3_TOOLCHAIN_DIR`
-- [ ] Build toolchain: `ct-ng build`
-- [ ] Write `toolchain/crosstool-ng/README.md` with build instructions
-- [ ] Export or provision a JetPack 5.1.3 target sysroot for CUDA, TensorRT, OpenCV, multimedia, and transitive libraries
-- [ ] Document target include/library paths, CMake search roots, and runtime library strategy
-- [ ] Verify compiler version, hello-world execution, ELF architecture, glibc symbol versions, and dynamic dependencies on Manifold 3
+### Work
 
-### 2.3: CMake Build System
+- [ ] Download and record the checksum of the NVIDIA Bootlin GCC 9.3.0 toolchain.
+- [ ] Build `sysroot/` from the Jetson Linux r35.5.0 BSP, sample root filesystem, and required JetPack 5.1.3
+  development packages.
+- [ ] Add the CMake cross-compilation toolchain configuration.
+- [ ] Add environment validation for `MANIFOLD3_TOOLCHAIN_DIR` and `MANIFOLD3_SYSROOT`.
+- [ ] Compile a minimal C and C++ target program.
+- [ ] Verify ELF architecture, dynamic dependencies, `GLIBC_*`, and `GLIBCXX_*` requirements.
+- [ ] Run the target program on Manifold 3.
 
-- [ ] Write `cmake/toolchain-aarch64.cmake` — cross-compile toolchain file
-- [ ] Write `cmake/psdk.cmake` — PSDK include/lib linking
-- [ ] Write `cmake/platform.cmake` — host vs manifold3 detection
-- [ ] Write top-level `CMakeLists.txt` with subproject integration
-- [ ] Keep host tests independent from target-only PSDK, CUDA, and TensorRT libraries through facades/fakes
-- [ ] Verify host build and target cross-build independently
+### Exit Criteria
 
-### 2.4: Platform Port (PSDK HAL/OSAL)
+- The build does not resolve target headers or libraries from host x86_64 paths.
+- The generated ELF is AArch64 and starts on the target firmware.
+- Any difference between the standard r35.5.0 sysroot and Manifold 3 is recorded before adding an overlay.
 
-- [ ] Copy the required Linux common platform sources from `third_party/psdk/samples/sample_c/platform/linux/common/`
-- [ ] Copy the Manifold 3-specific USB Bulk HAL from `third_party/psdk/samples/sample_c/platform/linux/manifold3/hal/`
-- [ ] Adapt and register OSAL, console/logger, file system, socket, and USB Bulk handlers used by the Manifold 3 sample
-- [ ] Add application identity and link configuration without committing credentials
-- [ ] Document required device nodes, permissions, and selected hardware connection mode
-- [ ] Write `src/platform/CMakeLists.txt`
+## Phase 3: Minimal PSDK and DPK Application
 
-### 2.5: Core PSDK Lifecycle
+### Outcome
 
-- [ ] Write `src/core/psdk_core.h` — lifecycle interface
-- [ ] Write `src/core/psdk_core.cpp` with an explicit lifecycle:
-  - Register platform handlers
-  - Fill user information and call `DjiCore_Init`
-  - Set alias, firmware version, and serial number
-  - Call `DjiLiveview_Init`, initialize other modules, and apply settings that must precede `DjiCore_ApplicationStart`
-  - Call `DjiCore_ApplicationStart` and run
-  - Stop streams, unregister Liveview callbacks/labels, call `DjiLiveview_Deinit`, and shut down remaining modules in reverse order
-- [ ] Write `src/core/CMakeLists.txt`
+Start a minimal Payload SDK application on Manifold 3 and exercise its complete install and lifecycle path.
 
-### 2.6: Capture Layer
+### Work
 
-- [ ] Write `src/capture/capture_sink.h` — `ISink` abstract interface:
-  - `FileSink`: write frames to `.h264` / `.nv12` / `.rgb` files
-  - `RingBufferSink`: bounded frame queue backed by owned/preallocated buffers
-  - `CallbackSink`: user-defined callback
-- [ ] Write `src/capture/sinks.cpp` — sink implementations
-- [ ] Write `src/capture/capture.h` — abstract `Capture` interface:
-  - `start(position, source, sink)` / `stop()`
-  - Camera sources: `M4T_VIS`, `M4T_IR`
-  - Pixel formats: `NV12`, `RGB_PLANAR`, `RGB_PACKED`
-- [ ] Write `src/capture/capture_h264.h` / `.cpp` — `DjiLiveview_StartH264Stream` impl
-- [ ] Write `src/capture/capture_image.h` / `.cpp` — `DjiLiveview_StartImageStream` impl (Manifold 3 only, decoded NV12/RGB)
-- [ ] Define callback buffer ownership, frame metadata, queue capacity, drop policy, and shutdown behavior
-- [ ] Start with a correct synchronized queue; consider lock-free storage only after profiling demonstrates a need
-- [ ] Write `src/capture/CMakeLists.txt`
+- [ ] Port the required Linux OSAL, socket, filesystem, logging, and Manifold 3 USB Bulk handlers from the PSDK
+  samples into `src/platform/`.
+- [ ] Add the minimal PSDK lifecycle under `src/core/`.
+- [ ] Link PSDK 3.16.0 with the smallest required system libraries.
+- [ ] Add a minimal application entry point under `src/app/`.
+- [ ] Add a development `app.json` without committing credentials.
+- [ ] Use the PSDK-provided `build_dpk.sh` to generate the development package.
+- [ ] Build, install, start, stop, update, and uninstall the DPK.
 
-### 2.7: Application Entry Point and Capability Validation
+### Exit Criteria
 
-- [ ] Write `src/app/main.cpp` — init core → create capture instances → start configured streams → run loop
-- [ ] Write `src/app/CMakeLists.txt`
-- [ ] Validate single VIS H.264, single IR H.264, and single decoded ImageStream first
-- [ ] Validate VIS + IR and H.264 + ImageStream combinations as hardware capability tests rather than assumptions
-- [ ] Record resolution, FPS, latency, dropped frames, CPU/GPU usage, memory growth, and reconnect behavior
+- PSDK initializes and connects to the aircraft.
+- Logs are available through the supported Manifold 3 application workflow.
+- The DPK lifecycle works before video capture or TensorRT is introduced.
 
-### 2.8: Build & Deploy
+## Phase 4: Single-Stream Video Capture
 
-- [ ] Write `scripts/build.sh` — cmake invocation with cross-compile args
-- [ ] Write `scripts/deploy.sh` — scp binary + libs to Manifold 3, SSH remote start
-- [ ] Add deployment checks for ELF architecture, `ldd`, symbol versions, device nodes, and permissions
-- [ ] End-to-end verification: DPK runs on Manifold 3 and captures configured H.264 and decoded frames from M4T
+### Outcome
 
-## Phase 3 — On-Device Model Inference
+Receive one Matrice 4T visible-light stream and expose bounded, owned frames to a consumer.
 
-### 3.1: Inference Engine
+### Work
 
-- [ ] Write `src/inference/inference.h` — feed frame → detections
-- [ ] Define ONNX-to-engine build flow, TensorRT/CUDA compatibility matrix, bindings, precision, and plugin requirements
-- [ ] Build TensorRT engines for the target JetPack/GPU environment; do not treat `.engine` files as portable artifacts
-- [ ] Implement TensorRT/CUDA pipeline:
-  - [ ] Load optimized TensorRT engine (`.engine` file)
-  - [ ] Preprocess NV12/RGB frames → model input tensor
-  - [ ] Run inference
-  - [ ] Postprocess: parse detections, NMS, confidence threshold
-- [ ] Write `src/inference/CMakeLists.txt`
+- [ ] Initialize PSDK Liveview after core initialization.
+- [ ] Validate `DjiLiveview_StartImageStream()` with NV12 output on Manifold 3.
+- [ ] Define frame ownership, metadata, bounded buffering, drop behavior, and shutdown behavior from observed callback
+  timing.
+- [ ] Record frame dimensions, format, frame rate, drop count, latency, CPU use, and memory growth.
+- [ ] Validate H.264 capture separately for recording and fallback capability.
 
-### 3.2: AI Metadata → DJI Pilot
+### Exit Criteria
 
-- [ ] Initialize Payload Camera, choose the matching H.264 custom or DJI stream format, and call `DjiPayloadCamera_SetVideoStreamType` before `DjiCore_ApplicationStart`
-- [ ] Register detection labels with `DjiLiveview_RegUserAiTargetLableList`
-- [ ] Send bounding boxes with `DjiLiveview_SendAiMetaToPilot`
-- [ ] Register the H.264 encoder callback with `DjiLiveview_RegEncoderCallback`
-- [ ] Encode processed frames with `DjiLiveview_EncodeAFrameToH264`
-- [ ] Send callback output to Pilot with `DjiPayloadCamera_SendVideoStream`, splitting writes at 65,000 bytes or less
-- [ ] Use `DjiPayloadCamera_GetVideoStreamState` to apply bandwidth/busy backpressure through dropping, pausing, or bitrate reduction
-- [ ] Package the development DPK with `is_ai_rendering` set to `true`
-- [ ] End-to-end demo: native or processed live video plus detection overlay visible in DJI Pilot
+- A stable visible-light NV12 stream reaches a test consumer.
+- Callback buffers are not retained after callback return.
+- Backpressure has an explicit bounded policy.
+- Capture stops cleanly without use-after-free or unbounded memory growth.
 
-## Phase 4 — DPK Packaging & Production
+Infrared streaming, simultaneous streams, and source combinations are capability tests performed only after the
+single-stream path is stable.
 
-- [ ] Finalize `config/app.json` metadata, compatibility bounds, and packaged resources
-- [ ] Audit dynamic dependencies; optionally link libstdc++/libgcc statically when compatibility testing justifies it
-- [ ] Define how CUDA, TensorRT, OpenCV, and other shared libraries are supplied by the target system or package
-- [ ] For bundled shared libraries, package them through `userconfig` and verify an `$ORIGIN`-relative RUNPATH or an equivalent launch-time library-path mechanism
-- [ ] Write `scripts/package_dpk.sh` — invoke `build_dpk.sh` from PSDK tools
-- [ ] Add `readelf`, symbol-version, and `ldd` checks to the release gate
-- [ ] Test: install `.dpk` via DJI Pilot on Manifold 3
-- [ ] Test: application lifecycle (install → start → stop → update → uninstall)
+## Phase 5: TensorRT Inference
+
+### Outcome
+
+Feed the captured NV12 frames into a TensorRT 8.5.2 model and produce structured detection results continuously.
+
+### Work
+
+- [ ] Add only the CUDA and TensorRT development packages required by the selected APIs.
+- [ ] Define the model input, output, precision, and engine compatibility contract.
+- [ ] Implement preprocessing without custom `.cu` files initially.
+- [ ] Load a target-compatible TensorRT engine.
+- [ ] Run single-frame inference before enabling continuous inference.
+- [ ] Measure end-to-end latency, inference time, throughput, memory use, and frame drops.
+- [ ] Add postprocessing and a stable detection result interface.
+
+### Exit Criteria
+
+- Continuous inference runs on Manifold 3 with bounded memory.
+- The result schema is independent of PSDK callback internals.
+- Performance measurements identify whether additional acceleration work is justified.
+
+## Phase 6: Product Output and Packaging
+
+### Outcome
+
+Select the required product output, audit dependencies, and produce a release candidate DPK.
+
+### Work
+
+- [ ] Select result output based on the product workflow: local structured result, Pilot AI metadata, processed video,
+  or another verified transport.
+- [ ] Implement only the selected output path.
+- [ ] Classify every runtime dependency as firmware-provided, statically linked, or packaged application data.
+- [ ] Add `scripts/package_dpk.sh` as the repository release wrapper around the PSDK packaging tool.
+- [ ] Verify DPK install, start, stop, update, uninstall, logs, and data cleanup.
+- [ ] Run the target ELF and dependency release checks.
+- [ ] Record supported firmware, aircraft, camera source, model, and performance bounds.
+
+### Exit Criteria
+
+- The selected user-visible output works end to end.
+- No unclassified dynamic dependency remains.
+- The release candidate passes lifecycle and target compatibility checks.
+
+## Decision Triggers
+
+| Decision | Trigger |
+|---|---|
+| Add FFmpeg or GStreamer | ImageStream is unavailable or the product must process H.264 as model input. |
+| Add OpenCV or VPI | Measured preprocessing complexity or performance justifies the dependency. |
+| Compile custom `.cu` files | The initial preprocessing path cannot meet the measured latency target. |
+| Use crosstool-ng | NVIDIA's Bootlin toolchain has a documented limitation that blocks the target build. |
+| Link `libstdc++` or `libgcc` statically | Target validation demonstrates a real `GLIBCXX_*` compatibility problem. |
+| Overlay files from Manifold 3 | A measured ABI or dependency difference exists against the r35.5.0 sysroot. |
+| Use DLA, FP16, or INT8 | Model accuracy, throughput, and power tests show a product benefit. |
+| Support multiple camera streams | Single-stream capture and inference are stable and hardware capability tests pass. |
+| Send AI metadata or processed video to Pilot | The product workflow requires Pilot presentation and the relevant PSDK path is validated. |

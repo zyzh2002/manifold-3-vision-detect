@@ -14,10 +14,15 @@ build-host/
 .vscode/
 .idea/
 .opencode/
+.codex/
 *.swp
 *~
 
-# crosstool-ng build artifacts
+# External toolchains and local target sysroot
+.local-toolchains/
+sysroot/
+
+# Optional crosstool-ng build artifacts
 .crosstool-ng-*.log
 x-tools/
 

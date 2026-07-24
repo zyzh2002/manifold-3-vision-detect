@@ -1,135 +1,108 @@
 # Architecture
 
-## System Overview
+## System Boundary
 
-```
-Matrice 4T Camera
-  |
-  |  E-Port V2 (PSDK core over USB Bulk; socket/network services for data paths)
-  v
-Manifold 3 (Jetson-class, JetPack 5.1.3)
-  |
-  +-- PSDK Core (DjiCore_Init, DjiPlatform, HAL/OSAL)
-  |
-  +-- Liveview API
-  |   +-- DjiLiveview_StartH264Stream()  -> H.264 NALU callback
-  |   +-- DjiLiveview_StartImageStream() -> decoded NV12/RGB callback (M3 only)
-  |
-  +-- Capture Layer (abstraction)
-  |   +-- CaptureH264   -> ISink -> FileSink (.h264 file)
-  |   +-- CaptureImage  -> ISink -> RingBufferSink
-  |   +-- ISink: FileSink | CallbackSink | RingBufferSink
-  |
-  +-- Inference Engine (Phase 3)
-  |   +-- Read frame from RingBufferSink
-  |   +-- Preprocess (NV12 -> model input tensor)
-  |   +-- Run TensorRT inference
-  |   +-- Postprocess (parse detections, NMS, threshold)
-  |   +-- Send AI meta to Pilot: DjiLiveview_SendAiMetaToPilot
-  |   +-- Optional processed-video path:
-  |       +-- DjiLiveview_EncodeAFrameToH264
-  |       +-- Encoder callback
-  |       +-- Stream-state backpressure + <= 65,000-byte writes
-  |       +-- DjiPayloadCamera_SendVideoStream
-  |
-  +-- Output
-      +-- H.264 files (captured streams)
-      +-- Annotated liveview (Pilot display)
-      +-- Detection metadata (bounding boxes, labels)
+The application runs on DJI Manifold 3, receives camera data from a Matrice 4T through DJI Payload SDK, and performs
+target inference with the JetPack-provided TensorRT runtime.
+
+```text
+Matrice 4T camera
+    |
+    | E-Port V2 and PSDK platform services
+    v
+Manifold 3
+    |
+    +-- Platform adaptation
+    +-- PSDK core lifecycle
+    +-- Liveview capture
+    +-- Bounded frame handoff
+    +-- TensorRT inference
+    +-- Product output selected after the inference path is measured
 ```
 
-## Key Design Decisions
+## Primary Data Flow
 
-### Why Both H.264 and Decoded Image Streams?
+The planned initial implementation uses decoded image streaming because Manifold 3 exposes this path directly through
+PSDK. Target testing must confirm the selected Matrice 4T source and NV12 mode:
 
-PSDK provides two liveview modes:
-
-| Mode | API | Output | Platform |
-|---|---|---|---|
-| H.264 NALU | `DjiLiveview_StartH264Stream` | Compressed H.264 bitstream | All platforms |
-| Decoded image | `DjiLiveview_StartImageStream` | Raw NV12/RGB frames | Manifold 3 only |
-
-The capture layer abstracts both so that:
-- H.264 mode is available for recording and all-platform compatibility
-- Decoded image mode feeds directly into the inference pipeline (Phase 3) without a separate decoder, leveraging Manifold 3's unique capability
-- Both share the same `ISink` interface, making sinks interchangeable
-
-### Capture Abstraction (ISink)
-
-```
-Capture
-  +-- start(position, cameraSource, sink)
-  +-- stop()
-  +-- ISink (injected):
-      +-- FileSink: writes frames to disk (.h264, .nv12, .rgb)
-      +-- RingBufferSink: lock-free ring buffer, multi-consumer
-      +-- CallbackSink: user-defined callback function
+```text
+DjiLiveview_StartImageStream
+    -> NV12 callback buffer
+    -> copy or transfer into bounded application-owned storage
+    -> preprocessing
+    -> TensorRT inference
+    -> structured detection result
 ```
 
-This decouples the PSDK API from frame consumers. The inference engine subscribes to `RingBufferSink` without knowing PSDK internals.
+The capture layer will copy callback data into application-owned storage before returning unless target-validated API
+semantics establish another safe ownership transfer. Expensive preprocessing or inference will not run in the callback
+thread. When the consumer falls behind, the bounded handoff applies an explicit drop policy rather than growing memory
+without limit.
 
-The image callback buffer is not retained by the capture layer. Frames are copied into owned, bounded storage before the callback returns. The initial implementation uses a synchronized queue with an explicit drop policy; a lock-free implementation is considered only if profiling demonstrates a bottleneck.
+## Secondary H.264 Path
 
-### Camera Sources (Matrice 4T)
+`DjiLiveview_StartH264Stream()` will be validated for recording and as a fallback capability. It is not the initial
+inference input because that would require a separate decoding dependency and another buffering stage.
 
-| Source | Enum Value | Description |
+H.264 becomes the inference input only if:
+
+- decoded ImageStream is unavailable for the required camera source or mode; or
+- the product must preserve or process the compressed stream for another verified requirement.
+
+## Module Boundaries
+
+| Module | Responsibility | Direct dependencies |
 |---|---|---|
-| `DJI_LIVEVIEW_CAMERA_SOURCE_M4T_VIS` | 1 | Visible light camera |
-| `DJI_LIVEVIEW_CAMERA_SOURCE_M4T_IR` | 2 | Infrared thermal camera |
+| `src/platform/` | Register Linux OSAL, logging, filesystem, socket, and Manifold 3 USB Bulk handlers. | PSDK platform headers and Linux APIs |
+| `src/core/` | Own PSDK initialization, application start, readiness, and orderly shutdown. | `src/platform/`, PSDK core APIs |
+| `src/capture/` | Start and stop one selected Liveview source and expose owned frames through a bounded interface. | `src/core/`, PSDK Liveview APIs |
+| `src/inference/` | Preprocess frames, execute TensorRT, and return structured detections. | TensorRT, required CUDA APIs |
+| `src/app/` | Select configuration and connect capture, inference, and output. | All application modules |
 
-Camera positions: `NO_1`, `NO_2`, `NO_3` (payload ports), `FPV=7`.
+The scaffold intentionally does not prescribe sink class names, a lock-free queue, a multi-consumer model, or a
+specific TensorRT wrapper. Those choices are made when their exact interfaces can be derived from working target data.
 
-### Cross-Compilation Strategy
+## Build Boundary
 
+```text
+x86_64 Linux host
+    |
+    +-- NVIDIA Bootlin GCC 9.3.0
+    |
+    +-- Jetson Linux r35.5.0 complete sysroot
+    |     +-- BSP and sample root filesystem
+    |     +-- CUDA 11.4 development files
+    |     +-- TensorRT 8.5.2 development files
+    |
+    +-- PSDK 3.16.0 headers and AArch64 libpayloadsdk.a
+    |
+    +-- AArch64 application
+          -> direct target validation
+          -> DPK packaging
 ```
-Host (x86_64 Linux)
-  |
-  +-- crosstool-ng toolchain
-  |   +-- gcc 11.5.0
-  |   +-- glibc 2.31 (matching Manifold 3)
-  |   +-- kernel headers 5.10
-  |
-  +-- JetPack 5.1.3 target sysroot
-  |   +-- CUDA 11.4.19
-  |   +-- TensorRT 8.5.2
-  |   +-- target OpenCV/multimedia libraries
-  |
-  +-- CMake + toolchain-aarch64.cmake
-  |   +-- Link libpayloadsdk.a (static, from PSDK submodule)
-  |   +-- Produce aarch64 ELF binary
-  |
-  +-- scripts/deploy.sh
-      +-- scp binary to Manifold 3
-      +-- SSH remote execution
-```
 
-**Why gcc 11.5.0 + glibc 2.31?**
+The standard Jetson Linux r35.5.0 sysroot is the build baseline. Manifold 3 firmware is the runtime authority. Target
+files are added as an overlay only after a concrete mismatch is measured. See `docs/build-environment.md` for version,
+link, and verification rules.
 
-Manifold 3 (JetPack 5.1.3 / Ubuntu 20.04) uses the target system ABI and NVIDIA runtime stack. The proposed cross-compilation toolchain uses gcc 11.5.0, but that choice must be validated against the actual target environment and exported sysroot.
+## Error and Shutdown Model
 
-| Concern | Strategy |
-|---|---|
-| **glibc ABI** | Build against a target sysroot matching the deployed Manifold 3 image, then inspect required symbol versions with `readelf`. |
-| **libstdc++ ABI** | Prefer the target runtime when compatible. Static libstdc++/libgcc is an optional compatibility choice that requires device testing; it is not a DPK requirement. |
-| **NVIDIA libraries** | Resolve CUDA, TensorRT, OpenCV, and multimedia headers and shared libraries from the JetPack 5.1.3 target sysroot. Crosstool-ng alone does not supply them. |
-| **C++17** | GCC 9 already provides a non-experimental C++17 implementation and does not require `-lstdc++fs` for `std::filesystem`. GCC 11 may still be selected for toolchain consistency and diagnostics. |
-| **Packaging** | Audit all dynamic dependencies and define whether each library is supplied by Manifold 3 or copied through DPK `userconfig`. Bundled libraries require a verified `$ORIGIN` RUNPATH or equivalent launch-time library path because `build_dpk.sh` does not configure the dynamic loader. |
+- Platform registration or PSDK core initialization failure prevents application startup.
+- Capture startup failure leaves inference stopped and reports the exact PSDK return code.
+- Invalid frame metadata or unsupported formats are rejected before entering inference.
+- Inference errors do not block the PSDK callback thread; the application records the error and applies its configured
+  stop or retry policy outside the callback.
+- Shutdown stops capture first, drains or discards bounded frames, destroys inference resources, deinitializes Liveview,
+  and then tears down the remaining PSDK lifecycle in reverse order.
 
-No compiler version or static C++ runtime policy is assumed valid until the resulting ELF has been checked and executed on the target firmware.
+## Deferred Product Output
 
-### Module Boundaries
+The inference pipeline initially produces local structured detection results. A later milestone selects one product
+output based on actual requirements and verified PSDK support:
 
-| Module | Responsibility | Dependencies |
-|---|---|---|
-| `src/platform/` | Linux common OSAL/filesystem/socket plus Manifold 3 USB Bulk HAL and link config | `third_party/psdk/psdk_lib` |
-| `src/core/` | PSDK lifecycle: init, start, shutdown | `src/platform/` |
-| `src/capture/` | Video stream abstraction, ISink framework | `src/core/`, `dji_liveview.h` |
-| `src/inference/` | TensorRT engine, pre/postprocess, AI meta | `src/capture/` (RingBufferSink) |
-| `src/app/` | Entry point, wiring, config | all above |
+- Pilot AI metadata;
+- processed H.264 video;
+- file or local IPC output;
+- a network transport permitted by the application environment.
 
-### Extension Points
-
-1. **New sinks** — implement `ISink` for new frame destinations (ROS topic, RTSP, MQTT)
-2. **New camera sources** — add verified SDK enum mappings for future aircraft; camera selection remains config-driven
-3. **Model swap** — rebuild an engine compatible with the target TensorRT/CUDA/GPU environment and the configured binding schema
-4. **DPK packaging** — Phase 2 establishes the minimal manifest and install loop; Phase 4 adds production dependency and lifecycle gates
+No output-specific PSDK camera emulation or encoder lifecycle is introduced before that selection.

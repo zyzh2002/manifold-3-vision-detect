@@ -25,25 +25,29 @@ cmake -B build-host -DCMAKE_BUILD_TYPE=Debug && cmake --build build-host
 # Deploy to Manifold 3 via SCP
 ./scripts/deploy.sh <manifold3-ip>
 
-# Package as DPK (Phase 4)
+# Package a release DPK (Phase 6)
 ./scripts/package_dpk.sh
 ```
 
 ## Cross-Compilation Toolchain
 
-- The target platform (Manifold 3) runs JetPack 5.1.3 / Ubuntu 20.04 with default gcc 9.4.0 and glibc 2.31.
-- The cross-compilation toolchain is built via crosstool-ng with **gcc 11.5.0 + glibc 2.31 + kernel 5.10 headers**.
-- **Why gcc 11.5.0 instead of matching the target's gcc 9.4.0?**
-  - gcc 9 already provides a non-experimental C++17 implementation, including `std::filesystem` without `-lstdc++fs`.
-  - gcc 11 is selected for a consistent modern host toolchain and diagnostics, subject to target-device ABI validation.
-  - glibc and target libraries must come from a sysroot matching the deployed Manifold 3 firmware.
-- `-static-libstdc++ -static-libgcc` is an optional compatibility strategy, not a DPK format requirement. Production binaries must instead pass target-device ELF, symbol-version, dynamic-dependency, and runtime checks.
+- The target baseline is Manifold 3 with NVIDIA JetPack 5.1.3 / Jetson Linux r35.5.0, Linux kernel 5.10, and glibc 2.31.
+- The primary cross-compiler is NVIDIA's prebuilt Bootlin **GCC 9.3.0 + binutils 2.33.1 + glibc 2.31** AArch64 toolchain.
+- The complete target sysroot is assembled from the Jetson Linux r35.5.0 BSP, Tegra sample root filesystem, and matching JetPack 5.1.3 AArch64 development packages.
+- The local sysroot may live under `sysroot/`. The directory is ignored by Git and must never be committed.
+- Do not use the Bootlin toolchain's base sysroot as the complete application sysroot.
+- Do not mix packages or libraries from different JetPack or Jetson Linux releases.
+- Do not resolve target headers or libraries from host x86_64 directories.
+- crosstool-ng is a fallback that requires a documented, concrete limitation of the NVIDIA toolchain. Do not add or build a crosstool-ng configuration preemptively.
+- `-static-libstdc++ -static-libgcc` is not the default. Evaluate it only after target testing demonstrates a real `GLIBCXX_*` compatibility problem.
+- Production binaries must pass target-device ELF, symbol-version, dynamic-dependency, and runtime checks.
 
 ## Environment Variables
 
 | Variable | Description |
 |---|---|
-| `MANIFOLD3_TOOLCHAIN_DIR` | Path to the crosstool-ng aarch64 toolchain (e.g. `/opt/x-tools/aarch64-manifold3-linux-gnu`) |
+| `MANIFOLD3_TOOLCHAIN_DIR` | Path to the NVIDIA Bootlin GCC 9.3.0 AArch64 toolchain |
+| `MANIFOLD3_SYSROOT` | Path to the complete Jetson Linux r35.5.0 target sysroot; may point to the ignored repository-local `sysroot/` directory |
 
 ## PSDK Submodule
 
@@ -69,10 +73,10 @@ cmake -B build-host -DCMAKE_BUILD_TYPE=Debug && cmake --build build-host
   - When the two disagree, local headers win. Record such discrepancies in the commit message or design note; do not silently blend them into a guessed conclusion.
 - The skill requires current, validated access through the DeepWiki MCP service. Do not substitute browser, web-fetch, search, or other documentation transports when that service is unavailable.
 - Reference chapters (slugs shown for orientation only; resolve the **exact chapter name** via `wiki-cache.py ls --json` before calling `get`):
-  - `1-overview` / `1.2-architecture-overview` — overall architecture
-  - `3.4-live-video-streaming` — liveview API
-  - `2.1-linux-aarch64-platform` — aarch64 platform specifics
-  - `5.1-os-abstraction-layer-(osal)` — OSAL porting
+  - `1-overview` / `1.2-architecture-overview`: overall architecture
+  - `3.4-live-video-streaming`: liveview API
+  - `2.1-linux-aarch64-platform`: aarch64 platform specifics
+  - `5.1-os-abstraction-layer-(osal)`: OSAL porting
 - Do NOT guess PSDK function signatures, enum values, or callback semantics.
 
 ## General Web Research (non-PSDK)
@@ -86,13 +90,27 @@ cmake -B build-host -DCMAKE_BUILD_TYPE=Debug && cmake --build build-host
 - **Format**: LLVM-style clang-format, 120 column limit.
 - **Naming**: snake_case for files, PascalCase for types, snake_case for functions and variables.
 - **No Chinese comments**. No non-English identifier names.
-- PSDK C headers carry `extern "C"` guards — no extra wrapping needed when including from C++.
+- PSDK C headers carry `extern "C"` guards; no extra wrapping is needed when including from C++.
 
 ## Git Workflow
 
 - Commit messages in English, prefix with conventional commits: `chore:`, `feat:`, `fix:`, `docs:`.
 - Rebase over merge for linear history.
 - Before committing, verify: `git submodule update --init --recursive`.
+
+### Development Branch Policy
+
+- Use a lightweight trunk-based workflow. `main` must remain buildable and verifiable.
+- For normal implementation work, update `main` and create one short-lived branch per objective.
+- Use one of these branch prefixes: `feat/`, `fix/`, `docs/`, `chore/`, `refactor/`, or `test/`.
+- Use a short kebab-case topic after the prefix, for example `feat/liveview-capture` or `docs/build-environment`.
+- Keep each branch focused on one reviewable objective. Do not mix unrelated cleanup or features.
+- Do not create long-lived `develop`, `integration`, `release`, or agent-specific branches.
+- Rebase the development branch onto the latest `main` before integration; do not create merge commits.
+- Agents may create local branches and commits as needed for an approved task.
+- Agents must obtain explicit user approval before pushing, creating a pull request, merging into `main`, or deleting a remote branch.
+- Direct commits to `main` require explicit user authorization for the specific task.
+- Delete short-lived development branches after their changes are integrated.
 
 ## Phase 1 Scope
 
@@ -102,14 +120,14 @@ What exists:
 - Directory structure
 - `.gitkeep` placeholders
 - `.gitignore`
-- `README.md`, `AGENTS.md`, `docs/plan.md`, `docs/architecture.md`
+- `README.md`, `AGENTS.md`, `docs/plan.md`, `docs/architecture.md`, `docs/build-environment.md`
+- `toolchain/README.md`
 - PSDK git submodule pinned to `3.16.0`
 
 What to do next (Phase 2):
-1. Build crosstool-ng toolchain (`toolchain/crosstool-ng/`)
-2. Write `cmake/toolchain-aarch64.cmake` and `cmake/psdk.cmake`
-3. Port PSDK platform layer into `src/platform/`
-4. Implement PSDK core init in `src/core/`
-5. Implement video capture abstraction in `src/capture/`
-6. Wire up `src/app/main.cpp` entry point
-7. Write `scripts/build.sh` and `scripts/deploy.sh`
+1. Download the NVIDIA Bootlin GCC 9.3.0 toolchain.
+2. Assemble the complete Jetson Linux r35.5.0 sysroot under `sysroot/` or another `MANIFOLD3_SYSROOT` location.
+3. Write the minimal CMake cross-compilation configuration and validate an AArch64 target program.
+4. Port the required PSDK platform layer into `src/platform/`.
+5. Implement the minimal PSDK lifecycle and DPK application before adding video capture.
+6. Validate one visible-light NV12 ImageStream before selecting detailed capture abstractions.

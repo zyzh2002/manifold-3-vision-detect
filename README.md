@@ -1,129 +1,102 @@
 # manifold-3-vision-detect
 
-基于妙算 3 的无人机视觉检测系统：从 Matrice 4T 相机实时截取视频流，在端侧运行 AI 模型进行目标检测与识别。
+基于妙算 3 的无人机视觉检测系统：从 Matrice 4T 相机获取实时视频帧，并在板端使用 TensorRT 运行目标检测模型。完成联调后，应用将打包为 DPK 发布。
 
-## 硬件栈
+## 已确定基线
 
-| 组件 | 型号 / 规格 |
+| 组件 | 版本 / 方案 |
 |---|---|
-| 机载计算机 | 妙算 3（Manifold 3）— 100 TOPS（60 GPU + 40 DLA），16GB LPDDR5，256GB SSD |
-| 无人机 | Matrice 4T（可见光 + 红外） |
-| 接口 | E-Port V2，PSDK 核心链路使用 USB Bulk；Liveview/数据通道使用 Linux socket/network 抽象；24V 供电 |
-| 系统环境 | NVIDIA JetPack 5.1.3 / Ubuntu 20.04 / aarch64 / glibc 2.31 / kernel 5.10 |
-| 妙算 3 固件 | v17.00.01.01（2026-03-31） |
-| 原生编译器 | gcc 9.4.0（Ubuntu 20.04 默认，支持 C++17） |
+| 无人机 | DJI Matrice 4T |
+| 机载计算平台 | DJI 妙算 3（Manifold 3） |
+| 平台软件基线 | NVIDIA JetPack 5.1.3 / Jetson Linux r35.5.0 |
+| 目标系统 | AArch64 GNU/Linux / Linux kernel 5.10 / glibc 2.31 |
+| DJI SDK | Payload SDK 3.16.0 |
+| 交叉编译器 | NVIDIA Bootlin GCC 9.3.0 二进制工具链 |
+| Sysroot | Jetson Linux r35.5.0 完整 sysroot |
+| 推理框架 | TensorRT 8.5.2 / CUDA 11.4.19 |
+| 构建系统 | CMake（后续阶段） |
 
-## 软件栈
+`crosstool-ng` 仅作为备用方案：只有 NVIDIA 官方工具链出现已确认且已记录的限制时，才考虑自行构建工具链。
 
-| 组件 | 版本 | 用途 |
-|---|---|---|
-| DJI PSDK | 3.16.0（git submodule，pinned tag） | 无人机通信与视频流 API |
-| 交叉编译工具链 | crosstool-ng 构建：gcc 11.5.0 + glibc 2.31 + kernel 5.10 headers（详见下方说明） | 在 x86_64 主机上编译 aarch64 产物 |
-| 推理框架 | TensorRT 8.5.2 / CUDA 11.4.19（JetPack 5.1.3 基线，Phase 3） | 端侧模型推理 |
-| 构建系统 | CMake | 交叉编译 |
+## 数据流
+
+首选路径直接使用妙算 3 支持的 PSDK ImageStream 获取 NV12 帧，避免在初始实现中增加 H.264 解码依赖：
+
+```text
+Matrice 4T camera
+    -> PSDK Liveview ImageStream
+    -> NV12 frame handoff
+    -> TensorRT inference
+    -> detection result
+```
+
+H.264 路径首先用于能力验证和录像，仅在 ImageStream 无法满足需求时才作为模型输入路径。
 
 ## 仓库布局
 
-```
+```text
 .
 ├── README.md
-├── AGENTS.md                  # Agent instructions (English only)
-├── .gitignore
-├── .gitmodules
-├── cmake/                     # CMake toolchain files (Phase 2+)
-├── third_party/
-│   └── psdk/                  # dji-sdk/Payload-SDK git submodule (read-only)
-├── toolchain/
-│   └── crosstool-ng/          # crosstool-ng config (Phase 2+)
-├── config/                    # App manifest & compile-time config (Phase 2+)
-├── src/
-│   ├── app/                   # Entry point (Phase 2+)
-│   ├── core/                  # PSDK lifecycle wrapper (Phase 2+)
-│   ├── capture/               # Video stream capture abstraction layer (Phase 2+)
-│   ├── platform/              # Manifold 3 HAL/OSAL port (vendored from PSDK sample)
-│   └── inference/             # TensorRT/CUDA model inference (Phase 3+)
-├── scripts/                   # Build / deploy / package scripts (Phase 2+)
+├── AGENTS.md
+├── cmake/                       # Phase 2 构建配置
+├── config/                      # DPK 配置
 ├── docs/
-│   ├── plan.md                # Phased implementation plan
-│   └── architecture.md        # Architecture & data flow
-└── tests/                     # Unit tests (Phase 2+)
+│   ├── architecture.md          # 高层架构和模块边界
+│   ├── build-environment.md     # 工具链、sysroot、ABI 和链接策略
+│   └── plan.md                  # 结果导向的实施里程碑
+├── scripts/                     # 环境准备、构建、部署和打包脚本
+├── src/
+│   ├── app/                     # 应用入口和模块组装
+│   ├── capture/                 # PSDK 视频帧接收
+│   ├── core/                    # PSDK 生命周期
+│   ├── inference/               # TensorRT 推理
+│   └── platform/                # Manifold 3 HAL/OSAL 适配
+├── sysroot/                     # 本地完整 Jetson sysroot，不提交到 Git
+├── tests/                       # 随实现逐步增加测试
+├── third_party/
+│   └── psdk/                    # PSDK 3.16.0 子模块，只读
+└── toolchain/
+    └── README.md                # 外部工具链使用约定
 ```
 
-## 为何交叉编译工具链使用 gcc 11.5.0 而非目标原生 gcc 9.4.0？
+`sysroot/` 和可选的 `.local-toolchains/` 均被 Git 忽略，克隆仓库后不会自动存在。
 
-妙算 3 的原生系统（JetPack 5.1.3 / Ubuntu 20.04）默认 gcc 为 **9.4.0**，其 `libstdc++.so.6` 仅支持到 `GLIBCXX_3.4.28`。若交叉编译工具链使用更高版本的 gcc 且动态链接 libstdc++，产物会在妙算 3 上因缺少符号而无法运行。
+## 当前范围
 
-gcc 9 已提供非实验性的 C++17 实现，`std::filesystem` 也不需要额外链接 `-lstdc++fs`。选择 **gcc 11.5.0** 不是因为 gcc 9 缺少完整 C++17，而是为了统一较新的主机构建工具链和诊断能力。
+仓库目前处于脚手架和设计阶段，尚未加入源码、CMake 或构建脚本。后续按以下顺序建立可运行闭环：
 
-该选择必须结合妙算 3 实机环境验证：
+1. 准备 Bootlin GCC 9.3 和完整 Jetson Linux r35.5.0 sysroot。
+2. 构建并运行最小 PSDK/DPK 应用。
+3. 获取 Matrice 4T 单路可见光 NV12 视频帧。
+4. 接入 TensorRT 推理并测量实时性能。
+5. 完成依赖审计和 DPK 发布验证。
 
-1. **以目标 sysroot 为准** — glibc、系统头文件以及 CUDA、TensorRT、OpenCV 和多媒体库必须来自与目标固件匹配的 JetPack 5.1.3 sysroot；仅构建 crosstool-ng 工具链并不足以编译完整推理程序
-2. **检查实际符号依赖** — 使用 `readelf`、`ldd` 和目标机运行测试确认 glibc、libstdc++ 与 NVIDIA 共享库兼容性
-3. **静态 C++ 运行库是可选策略** — `-static-libstdc++ -static-libgcc` 可以减少对目标 libstdc++ 的依赖，但并非 DPK 格式要求，也不能静态替代 CUDA、TensorRT 等驱动相关共享库
-4. **保留回退方案** — 如果交叉编译依赖闭环不稳定，Phase 3 可在妙算 3 上原生构建 TensorRT 部分，或改用官方 JetPack 交叉编译包和 Ubuntu 20.04 构建环境
+更细的实现选择保留到对应阶段获取实测数据后再决定，详见 [`docs/plan.md`](docs/plan.md)。
 
-## 快速上手
+## 本地路径
 
-### 前置条件
+推荐通过环境变量提供工具链和 sysroot：
 
-- 主机：x86_64 Linux；PSDK 基础交叉编译可使用常规发行版，JetPack/CUDA 交叉编译优先采用 NVIDIA 支持的 Ubuntu 20.04 环境或容器
-- 妙算 3：已安装 JetPack 5.1.3 并可通过 SSH 访问
-- DJI 开发者账号：已在 [developer.dji.com](https://developer.dji.com) 创建应用并获取 `app_id` / `app_key` / `app_license`
+```bash
+export MANIFOLD3_TOOLCHAIN_DIR=/opt/toolchains/bootlin-gcc-9.3
+export MANIFOLD3_SYSROOT="$(git rev-parse --show-toplevel)/sysroot"
+```
 
-### 初始化仓库
+完整的环境来源、依赖分类和 ELF 验证要求见 [`docs/build-environment.md`](docs/build-environment.md)。
+
+## 初始化仓库
 
 ```bash
 git clone --recurse-submodules <repo-url>
 cd manifold-3-vision-detect
 ```
 
-或已克隆后：
+已克隆仓库可运行：
 
 ```bash
 git submodule update --init --recursive
 ```
 
-### 构建工具链（Phase 2）
-
-参见 `toolchain/crosstool-ng/README.md`（待创建）。
-
-### 编译与部署（Phase 2+）
-
-```bash
-export MANIFOLD3_TOOLCHAIN_DIR=/opt/x-tools/aarch64-manifold3-linux-gnu
-./scripts/build.sh
-./scripts/deploy.sh <manifold3-ip>
-```
-
-## 路线图
-
-详见 [docs/plan.md](docs/plan.md)。
-
-## VibeCoding 环境配置
-
-本项目使用 [DeepWiki](https://deepwiki.com) 和 [Exa](https://exa.ai) MCP 服务器辅助 PSDK API 查询。
-
-### MCP 服务器配置
-
-在任意支持 MCP 的编辑器或 AI 工具中，添加 HTTP 类型的 MCP 服务器：
-
-```json
-{
-    "mcpServers": {
-        "deepwiki": {
-            "type": "remote",
-            "url": "https://mcp.deepwiki.com/mcp",
-            "enabled": true
-        },
-        "exa": {
-            "type": "remote",
-            "url": "https://mcp.exa.ai/mcp",
-            "enabled": true
-        }
-    }
-}
-```
-
 ## 许可
 
-本项目代码部分遵循 [GNU General Public License v3.0](LICENSE)。PSDK 子模块（`third_party/psdk/`）遵循 DJI Payload SDK 许可条款。
+本项目代码遵循 [GNU General Public License v3.0](LICENSE)。PSDK 子模块遵循 DJI Payload SDK 自身许可条款。
