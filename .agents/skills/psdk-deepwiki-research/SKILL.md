@@ -9,13 +9,43 @@ Research `dji-sdk/Payload-SDK` from primary documentation context before using g
 
 ## Required Workflow
 
-1. Perform this workflow in the main conversation. Do **not** delegate unless a subagent explicitly documents both (a) DeepWiki MCP access and (b) the ability to run `wiki-cache.py` and read the resulting cache files. In practice, most subagent types in this project lack (a) and (b); default to no delegation.
+1. Quick symbol lookup via the local API index:
 
-2. Read the wiki structure first:
+   Before opening DeepWiki or searching headers, use the auto-generated local API index to
+   locate the right header file and symbol name fast:
+
+   ```
+   # Grep for a function/struct/enum name
+   grep "SymbolName" .agents/skills/psdk-deepwiki-research/references/api-index.md
+
+   # Or read the full index for module discovery
+   ```
+
+   The index contains 5 sections:
+   - Quick Reference by Domain — find the right header by functional area
+   - Header-by-Header API Map — per-header function and type listings (core headers detailed, rest summarized)
+   - PSDK Initialization Sequence — standard call order
+   - Platform Porting Checklist — Manifold 3 HAL/OSAL requirements
+   - Flat Symbol Index — alphabetical symbol → header mapping (grep-friendly)
+
+   **The index is a navigation aid, not primary evidence.** Always verify symbols,
+   signatures, and values against the actual header under `third_party/psdk/psdk_lib/include/`
+   before using them in code.
+
+To regenerate after a PSDK version change:
+    ```
+    python3 .agents/skills/psdk-deepwiki-research/scripts/generate-api-index.py
+    ```
+
+    Maintenance guide: `references/api-index-maintenance.md`
+
+2. Perform this workflow in the main conversation. Do **not** delegate unless a subagent explicitly documents both (a) DeepWiki MCP access and (b) the ability to run `wiki-cache.py` and read the resulting cache files. In practice, most subagent types in this project lack (a) and (b); default to no delegation.
+
+3. Read the wiki structure first:
 
    Use the available DeepWiki tool for reading the wiki structure of `dji-sdk/Payload-SDK`. Tool names may vary between MCP server mappings; select the tool by capability rather than by an exact name.
 
-3. Pull and validate the complete wiki through the cache client:
+4. Pull and validate the complete wiki through the cache client:
 
    Use the local client as the authoritative full-content acquisition path. It initializes a
    standard MCP Streamable HTTP session, discovers the DeepWiki tools, fetches both structure
@@ -34,7 +64,7 @@ Research `dji-sdk/Payload-SDK` from primary documentation context before using g
    engine, or substitute documentation source. If the pull or validation fails, keep the old
    cache only as stale data and stop the current research workflow.
 
-4. Verify the cache and read every relevant chapter completely:
+5. Verify the cache and read every relevant chapter completely:
 
    a. Inspect provenance and the validated chapter list:
 
@@ -62,14 +92,14 @@ Research `dji-sdk/Payload-SDK` from primary documentation context before using g
    e. Record the exact chapter names read. Cache creation and search matches are not
    evidence that a chapter was read.
 
-5. If the selected agent cannot read the structure through the host MCP tool, cannot pull and
+6. If the selected agent cannot read the structure through the host MCP tool, cannot pull and
    validate the complete wiki through the direct MCP client, or cannot read every relevant cached
    chapter completely, stop the workflow and report the limitation. Do not use a browser, web
    fetch, search engine, DeepWiki CLI, or another documentation transport as a substitute.
 
-6. After successfully reading the DeepWiki content, cross-check conclusions against repository headers and samples under `third_party/psdk/`. For version-specific facts, local PSDK 3.16.0 headers and samples take precedence over upstream DeepWiki content. Prefer exact declarations and sample call sequences for API signatures, enum values, ordering constraints, callbacks, and platform support. Report unresolved differences as version discrepancies instead of combining them into a guessed conclusion.
+7. After successfully reading the DeepWiki content, cross-check conclusions against repository headers and samples under `third_party/psdk/`. For version-specific facts, local PSDK 3.16.0 headers and samples take precedence over upstream DeepWiki content. Prefer exact declarations and sample call sequences for API signatures, enum values, ordering constraints, callbacks, and platform support. Report unresolved differences as version discrepancies instead of combining them into a guessed conclusion.
 
-7. Use `ask_question` only after the full wiki contents and local primary sources have been read, and only to resolve a specific remaining ambiguity. Treat `ask_question` output as a secondary interpretation, not as the sole source of a factual claim.
+8. Use `ask_question` only after the full wiki contents and local primary sources have been read, and only to resolve a specific remaining ambiguity. Treat `ask_question` output as a secondary interpretation, not as the sole source of a factual claim.
 
    Use the available DeepWiki tool that provides focused question answering for `dji-sdk/Payload-SDK`.
 
