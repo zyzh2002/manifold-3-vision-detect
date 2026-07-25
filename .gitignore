@@ -35,6 +35,9 @@ CMakeCache.txt
 CMakeFiles/
 cmake-build-*/
 
+# General cache directories
+.cache/
+
 # DeepWiki cache
 .agents/skills/psdk-deepwiki-research/.cache/
 .agents/skills/psdk-deepwiki-research/**/__pycache__/
