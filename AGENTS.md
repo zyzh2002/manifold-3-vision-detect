@@ -2,6 +2,14 @@
 
 Instructions for AI coding agents working on this repository.
 
+## Mandatory Skill Invocation
+
+- **ZERO TOLERANCE: You MUST invoke relevant skills via the `skill` tool BEFORE doing anything else - before replying, before exploring files, before asking clarifying questions.**
+- This rule overrides any tendency to "just answer quickly" or "just check one thing first."
+- Check the available skills list first. If even one skill might apply (brainstorming, systematic-debugging, test-driven-development, writing-plans, psdk-deepwiki-research, etc.), invoke it.
+- If you are unsure whether a skill applies, invoke it anyway. You can always stop following it if it turns out irrelevant.
+- Failure to invoke applicable skills is a protocol violation.
+
 ## Language & Style
 
 - Use English for internal reasoning and Chinese for all user-facing communication.
