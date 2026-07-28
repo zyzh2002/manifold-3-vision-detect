@@ -1,6 +1,6 @@
 # Build artifacts
 build/
-build-host/
+build-*/
 *.o
 *.a
 *.so
@@ -20,7 +20,7 @@ build-host/
 
 # External toolchains and local target sysroot
 .local-toolchains/
-sysroot/
+sysroot
 
 # Optional crosstool-ng build artifacts
 .crosstool-ng-*.log

@@ -1,0 +1,42 @@
+{
+    "version": 3,
+    "cmakeMinimumRequired": {
+        "major": 3,
+        "minor": 21,
+        "patch": 0
+    },
+    "configurePresets": [
+        {
+            "name": "manifold3-cross-release",
+            "displayName": "Manifold 3 Cross-Compile (Release)",
+            "description": "Cross-compile for AArch64 Manifold 3 with NVIDIA Bootlin GCC 9.3",
+            "binaryDir": "build-cross",
+            "toolchainFile": "cmake/aarch64-manifold3.cmake",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release"
+            }
+        },
+        {
+            "name": "host-debug",
+            "displayName": "Host Debug Build",
+            "description": "Reserved host build for future unit tests",
+            "binaryDir": "build-host",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug"
+            }
+        }
+    ],
+    "buildPresets": [
+        {
+            "name": "manifold3-cross-release",
+            "configurePreset": "manifold3-cross-release",
+            "targets": ["verify_toolchain_smoke"],
+            "jobs": 0
+        },
+        {
+            "name": "host-debug",
+            "configurePreset": "host-debug",
+            "jobs": 0
+        }
+    ]
+}
