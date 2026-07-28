@@ -1,0 +1,27 @@
+BasedOnStyle: LLVM
+Language: Cpp
+ColumnLimit: 120
+Standard: c++17
+
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+
+AllowShortIfStatementsOnASingleLine: WithoutElse
+AllowShortFunctionsOnASingleLine: Inline
+AllowShortLambdasOnASingleLine: Inline
+
+BreakBeforeBraces: Attach
+Cpp11BracedListStyle: true
+SortIncludes: CaseSensitive
+IncludeBlocks: Regroup
+IncludeCategories:
+  - Regex: '^<.*\.h>'
+    Priority: 1
+  - Regex: '^<.*'
+    Priority: 2
+  - Regex: '^".*"'
+    Priority: 3
+
+SpaceAfterCStyleCast: false
+PointerAlignment: Right
