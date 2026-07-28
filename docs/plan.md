@@ -10,7 +10,7 @@ made after the preceding milestone produces target evidence.
 - [x] Document the Manifold 3, Matrice 4T, JetPack, toolchain, and sysroot baselines.
 - [x] Separate confirmed constraints from deferred implementation decisions.
 
-## Phase 2: Reproducible Target Build
+## Phase 2: Reproducible Target Build [IN PROGRESS: HOST VERIFIED]
 
 ### Outcome
 
@@ -19,13 +19,14 @@ sysroot, then run it on Manifold 3.
 
 ### Work
 
-- [ ] Download and record the checksum of the NVIDIA Bootlin GCC 9.3.0 toolchain.
-- [ ] Build `sysroot/` from the Jetson Linux r35.5.0 BSP, sample root filesystem, and required JetPack 5.1.3
-  development packages.
-- [ ] Add the CMake cross-compilation toolchain configuration.
-- [ ] Add environment validation for `MANIFOLD3_TOOLCHAIN_DIR` and `MANIFOLD3_SYSROOT`.
-- [ ] Compile a minimal C and C++ target program.
-- [ ] Verify ELF architecture, dynamic dependencies, `GLIBC_*`, and `GLIBCXX_*` requirements.
+- [x] Download and record the checksum of the NVIDIA Bootlin GCC 9.3.0 toolchain.
+- [x] Build Phase 2 base sysroot from the Jetson Linux r35.5.0 BSP, sample root filesystem,
+  and NVIDIA binary overlay. (CUDA/TensorRT/cuDNN development packages are deferred to Phase 5.)
+- [x] Add the CMake cross-compilation toolchain configuration.
+- [x] Add environment validation for `MANIFOLD3_TOOLCHAIN_DIR` and `MANIFOLD3_SYSROOT`.
+- [x] Compile a minimal C and C++ target program.
+- [x] Verify ELF architecture, dynamic dependencies, `GLIBC_*`, and `GLIBCXX_*` requirements
+  (host-side static checks).
 - [ ] Run the target program on Manifold 3.
 
 ### Exit Criteria

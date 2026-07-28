@@ -19,29 +19,27 @@ Instructions for AI coding agents working on this repository.
 
 ## Commands
 
-Build commands are not yet available in Phase 1. They will be added in Phase 2 as `scripts/` is populated.
-
-Future expected commands:
+Build commands for Phase 2 and beyond:
 
 ```bash
-# Cross-compile for Manifold 3 (host -> aarch64)
-./scripts/build.sh
+# Cross-compile for Manifold 3 and run static ELF verification
+cmake --preset manifold3-cross-release
+cmake --build --preset manifold3-cross-release
 
-# Host build for unit tests
-cmake -B build-host -DCMAKE_BUILD_TYPE=Debug && cmake --build build-host
+# Reserved host build for future unit tests
+cmake --preset host-debug
+cmake --build --preset host-debug
 
-# Deploy to Manifold 3 via SCP
-./scripts/deploy.sh <manifold3-ip>
-
-# Package a release DPK (Phase 6)
-./scripts/package_dpk.sh
+# Future commands (not yet implemented):
+#   ./scripts/deploy.sh <manifold3-ip>  (Phase 3)
+#   ./scripts/package_dpk.sh            (Phase 6)
 ```
 
 ## Cross-Compilation Toolchain
 
 - The target baseline is Manifold 3 with NVIDIA JetPack 5.1.3 / Jetson Linux r35.5.0, Linux kernel 5.10, and glibc 2.31.
 - The primary cross-compiler is NVIDIA's prebuilt Bootlin **GCC 9.3.0 + binutils 2.33.1 + glibc 2.31** AArch64 toolchain.
-- The complete target sysroot is assembled from the Jetson Linux r35.5.0 BSP, Tegra sample root filesystem, and matching JetPack 5.1.3 AArch64 development packages.
+- The Phase 2 base sysroot is assembled from the Jetson Linux r35.5.0 BSP, Tegra sample root filesystem, and NVIDIA binary overlay. It provides glibc, C/C++ development files, and Tegra runtime libraries. CUDA/TensorRT/cuDNN development packages are deferred to Phase 5.
 - The local sysroot may live under `sysroot/`. The directory is ignored by Git and must never be committed.
 - Do not use the Bootlin toolchain's base sysroot as the complete application sysroot.
 - Do not mix packages or libraries from different JetPack or Jetson Linux releases.
@@ -50,12 +48,13 @@ cmake -B build-host -DCMAKE_BUILD_TYPE=Debug && cmake --build build-host
 - `-static-libstdc++ -static-libgcc` is not the default. Evaluate it only after target testing demonstrates a real `GLIBCXX_*` compatibility problem.
 - Production binaries must pass target-device ELF, symbol-version, dynamic-dependency, and runtime checks.
 
-## Environment Variables
+## Build Configuration Variables
 
 | Variable | Description |
 |---|---|
 | `MANIFOLD3_TOOLCHAIN_DIR` | Path to the NVIDIA Bootlin GCC 9.3.0 AArch64 toolchain |
-| `MANIFOLD3_SYSROOT` | Path to the complete Jetson Linux r35.5.0 target sysroot; may point to the ignored repository-local `sysroot/` directory |
+| `MANIFOLD3_SYSROOT` | Path to the Jetson Linux r35.5.0 target sysroot; may point to the ignored repository-local `sysroot/` directory |
+| `MANIFOLD3_ALLOW_UNVERIFIED_SYSROOT` | CMake cache option for an exceptional, measured, and documented sysroot identity mismatch; defaults to `OFF` |
 
 ## PSDK Submodule
 
@@ -120,22 +119,34 @@ cmake -B build-host -DCMAKE_BUILD_TYPE=Debug && cmake --build build-host
 - Direct commits to `main` require explicit user authorization for the specific task.
 - Delete short-lived development branches after their changes are integrated.
 
-## Phase 1 Scope
+## Phase 2 Progress
 
-Phase 1 is scaffolding only. No source code. No CMake files. No scripts. No config files.
+Phase 2 host-side cross-compilation is complete. The following items have been verified without target hardware:
 
 What exists:
 - Directory structure
-- `.gitkeep` placeholders
-- `.gitignore`
-- `README.md`, `AGENTS.md`, `docs/plan.md`, `docs/architecture.md`, `docs/build-environment.md`
-- `toolchain/README.md`
+- CMake cross-compilation toolchain (`cmake/aarch64-manifold3.cmake`)
+- `CMakePresets.json` for cross and host build presets
+- Toolchain smoke tests under `tests/toolchain/`
+- `.clangd` LSP configuration
 - PSDK git submodule pinned to `3.16.0`
 
-What to do next (Phase 2):
-1. Download the NVIDIA Bootlin GCC 9.3.0 toolchain.
-2. Assemble the complete Jetson Linux r35.5.0 sysroot under `sysroot/` or another `MANIFOLD3_SYSROOT` location.
-3. Write the minimal CMake cross-compilation configuration and validate an AArch64 target program.
-4. Port the required PSDK platform layer into `src/platform/`.
-5. Implement the minimal PSDK lifecycle and DPK application before adding video capture.
-6. Validate one visible-light NV12 ImageStream before selecting detailed capture abstractions.
+What is verified on the host:
+- NVIDIA Bootlin GCC 9.3.0 toolchain (SHA256: `7725b460...`)
+- Jetson Linux r35.5.0 sysroot (BSP + sample rootfs + `apply_binaries.sh`)
+- C and C++ cross-compilation produces AArch64 ELF executables
+- ELF static checks: architecture, dynamic interpreter, dependencies, GLIBC/GLIBCXX versions
+- clangd reports no errors on existing source files with the cross-compile compilation database
+
+What is NOT yet verified (requires Manifold 3 hardware):
+- Target runtime execution
+- Actual GLIBC/GLIBCXX symbol availability on the device
+- CUDA/TensorRT runtime compatibility
+
+Remaining Phase 2 target work:
+1. Run the C and C++ smoke binaries on Manifold 3.
+2. Record target GLIBC/GLIBCXX availability and any sysroot mismatch.
+
+Phase 3 preparation may proceed without claiming Phase 2 runtime completion:
+1. Port the required PSDK platform layer into `src/platform/`.
+2. Implement the minimal PSDK lifecycle and DPK application.

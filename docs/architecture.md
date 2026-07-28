@@ -69,10 +69,13 @@ x86_64 Linux host
     |
     +-- NVIDIA Bootlin GCC 9.3.0
     |
-    +-- Jetson Linux r35.5.0 complete sysroot
+    +-- Jetson Linux r35.5.0 Phase 2 base sysroot
     |     +-- BSP and sample root filesystem
+    |     +-- NVIDIA binary overlay and Tegra runtime libraries
+    |
+    +-- Phase 5 sysroot extension
     |     +-- CUDA 11.4 development files
-    |     +-- TensorRT 8.5.2 development files
+    |     +-- TensorRT 8.5.2 and cuDNN development files
     |
     +-- PSDK 3.16.0 headers and AArch64 libpayloadsdk.a
     |

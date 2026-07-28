@@ -14,7 +14,7 @@
 | 交叉编译器 | NVIDIA Bootlin GCC 9.3.0 二进制工具链 |
 | Sysroot | Jetson Linux r35.5.0 完整 sysroot |
 | 推理框架 | TensorRT 8.5.2 / CUDA 11.4.19 |
-| 构建系统 | CMake（后续阶段） |
+| 构建系统 | CMake ≥ 3.21 / CMake Presets |
 
 `crosstool-ng` 仅作为备用方案：只有 NVIDIA 官方工具链出现已确认且已记录的限制时，才考虑自行构建工具链。
 
@@ -67,25 +67,26 @@ H.264 路径首先用于能力验证和录像，仅在 ImageStream 无法满足�
 │   ├── core/                    # PSDK 生命周期
 │   ├── inference/               # TensorRT 推理
 │   └── platform/                # Manifold 3 HAL/OSAL 适配
-├── sysroot/                     # 本地完整 Jetson sysroot，不提交到 Git
-├── tests/                       # 随实现逐步增加测试
+├── sysroot/                     # 本地 Phase 2 Jetson 基础 sysroot，不提交到 Git
+├── tests/
+│   └── toolchain/               # 交叉编译和 ELF 冒烟验证
 ├── third_party/
 │   └── psdk/                    # PSDK 3.16.0 子模块，只读
-└── toolchain/
-    └── README.md                # 外部工具链使用约定
 ```
 
 `sysroot/` 和可选的 `.local-toolchains/` 均被 Git 忽略，克隆仓库后不会自动存在。
 
 ## 当前范围
 
-仓库目前处于脚手架和设计阶段，尚未加入源码、CMake 或构建脚本。后续按以下顺序建立可运行闭环：
+仓库已完成 Phase 2 的主机侧交叉编译和 ELF 静态验证。Phase 2 的目标机运行验证仍需等待 Manifold 3
+硬件，完成后才能关闭该阶段；Phase 3 的代码工作可在此期间准备，但不能替代目标验证。
 
-1. 准备 Bootlin GCC 9.3 和完整 Jetson Linux r35.5.0 sysroot。
-2. 构建并运行最小 PSDK/DPK 应用。
-3. 获取 Matrice 4T 单路可见光 NV12 视频帧。
-4. 接入 TensorRT 推理并测量实时性能。
-5. 完成依赖审计和 DPK 发布验证。
+Phase 2 主机侧已完成：
+1. NVIDIA Bootlin GCC 9.3.0 工具链下载与校验。
+2. Jetson Linux r35.5.0 sysroot 组装（BSP + sample rootfs + `apply_binaries.sh`）。
+3. CMake 交叉编译工具链配置（`cmake/aarch64-manifold3.cmake`）。
+4. 最小 C/C++ 目标程序编译与 ELF 静态验证。
+5. 待完成：在 Manifold 3 上运行目标程序（需要硬件）。
 
 更细的实现选择保留到对应阶段获取实测数据后再决定，详见 [`docs/plan.md`](docs/plan.md)。
 
@@ -94,11 +95,11 @@ H.264 路径首先用于能力验证和录像，仅在 ImageStream 无法满足�
 推荐通过环境变量提供工具链和 sysroot：
 
 ```bash
-export MANIFOLD3_TOOLCHAIN_DIR=/opt/toolchains/bootlin-gcc-9.3
+export MANIFOLD3_TOOLCHAIN_DIR="$(git rev-parse --show-toplevel)/.local-toolchains/bootlin-gcc-9.3-nvidia"
 export MANIFOLD3_SYSROOT="$(git rev-parse --show-toplevel)/sysroot"
 ```
 
-完整的环境来源、依赖分类和 ELF 验证要求见 [`docs/build-environment.md`](docs/build-environment.md)。
+完整的环境来源、依赖分类、ELF 验证要求和构建命令见 [`docs/build-environment.md`](docs/build-environment.md)。
 
 ## 开发环境依赖
 
@@ -107,25 +108,29 @@ export MANIFOLD3_SYSROOT="$(git rev-parse --show-toplevel)/sysroot"
 | 软件包 | 用途 |
 |---|---|
 | `git` | 克隆仓库、管理子模块 |
-| `cmake` | 构建系统（建议 ≥ 3.16） |
-| `gcc` / `g++` / `make` | 主机端编译工具链（用于单元测试等） |
+| `cmake` | 构建系统（≥ 3.21） |
+| `gcc` / `g++` / `make` | 主机端编译工具链（预留给后续单元测试） |
 | `python3` | 辅助脚本、DeepWiki Skill |
-| `binutils` | ELF 文件分析工具（`file`、`readelf`） |
+| `binutils` | ELF 文件分析工具（`readelf`） |
+| `file` | ELF 文件类型和架构检测（`file`） |
 | `aarch64-linux-gnu-binutils` | 目标端 AArch64 ELF 验证 |
 
 **Ubuntu / Debian：**
 
 ```bash
-sudo apt install git cmake build-essential python3 binutils binutils-aarch64-linux-gnu
+sudo apt install git cmake build-essential python3 binutils file binutils-aarch64-linux-gnu
 ```
 
 **Fedora / RHEL：**
 
 ```bash
-sudo dnf install git cmake gcc gcc-c++ make python3 binutils binutils-aarch64-linux-gnu
+sudo dnf install git cmake gcc gcc-c++ make python3 binutils file
 ```
 
-> 交叉编译器（NVIDIA Bootlin GCC 9.3）和完整 Jetson sysroot 需单独准备，详见 [`docs/build-environment.md`](docs/build-environment.md)。
+> Fedora 下 AArch64 ELF 验证工具（`aarch64-linux-gnu-readelf` 等）可通过安装 `gcc-aarch64-linux-gnu`
+> 获取，或直接使用 Bootlin 工具链自带的 `aarch64-linux-objdump` / `aarch64-linux-readelf`。
+
+> 交叉编译器（NVIDIA Bootlin GCC 9.3）和 Jetson sysroot 需单独准备，详见 [`docs/build-environment.md`](docs/build-environment.md)。
 
 ## 初始化仓库
 
