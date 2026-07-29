@@ -35,6 +35,53 @@ cmake --build --preset host-debug
 #   ./scripts/package_dpk.sh            (Phase 6)
 ```
 
+## Manifold 3 Device Access
+
+The Matrice 4E is connected to the development host via USB cable. The onboard
+Manifold 3 computer exposes a fixed network address and accepts SSH with the
+key stored in the repository.
+
+Connection details:
+
+| Property | Value |
+|---|---|
+| Host / IP | `192.168.42.120` |
+| SSH user | `dji` |
+| SSH port | `22` |
+| Private key | `config/manifold3_id_rsa` (RSA 4096, committed to repo) |
+
+SSH one-liner:
+
+```bash
+ssh -i config/manifold3_id_rsa -o StrictHostKeyChecking=no dji@192.168.42.120
+```
+
+SCP one-liner:
+
+```bash
+scp -i config/manifold3_id_rsa -o StrictHostKeyChecking=no <local-file> dji@192.168.42.120:<remote-path>
+```
+
+Common target inspection commands:
+
+```bash
+# Kernel and architecture
+ssh -i config/manifold3_id_rsa dji@192.168.42.120 "uname -a"
+
+# Jetson Linux release
+ssh -i config/manifold3_id_rsa dji@192.168.42.120 "cat /etc/nv_tegra_release"
+
+# glibc version
+ssh -i config/manifold3_id_rsa dji@192.168.42.120 "ldd --version"
+
+# Dynamic dependency check of a deployed binary
+ssh -i config/manifold3_id_rsa dji@192.168.42.120 "ldd /path/to/binary"
+```
+
+The key file permissions must remain `600`. Do not wrap the key or regenerate it.
+The device is physically isolated and the key is non-sensitive for this lab
+environment.
+
 ## Cross-Compilation Toolchain
 
 - The target baseline is Manifold 3 with NVIDIA JetPack 5.1.3 / Jetson Linux r35.5.0, Linux kernel 5.10, and glibc 2.31.
