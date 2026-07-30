@@ -61,7 +61,7 @@ if(NOT EXISTS "${TOOLCHAIN_BIN_DIR}/${TOOLCHAIN_TRIPLE}-g++")
 endif()
 
 execute_process(
-    COMMAND "${TOOLCHAIN_BIN_DIR}/${TOOLCHAIN_TRIPLE}-gcc" -dumpversion
+    COMMAND "${TOOLCHAIN_BIN_DIR}/${TOOLCHAIN_TRIPLE}-gcc" -dumpfullversion
     OUTPUT_VARIABLE _gcc_version
     OUTPUT_STRIP_TRAILING_WHITESPACE
     ERROR_QUIET
@@ -90,7 +90,9 @@ set(CMAKE_AR           "${TOOLCHAIN_BIN_DIR}/${TOOLCHAIN_TRIPLE}-ar"      CACHE 
 set(CMAKE_STRIP        "${TOOLCHAIN_BIN_DIR}/${TOOLCHAIN_TRIPLE}-strip"   CACHE FILEPATH "")
 set(CMAKE_OBJCOPY      "${TOOLCHAIN_BIN_DIR}/${TOOLCHAIN_TRIPLE}-objcopy" CACHE FILEPATH "")
 set(CMAKE_OBJDUMP      "${TOOLCHAIN_BIN_DIR}/${TOOLCHAIN_TRIPLE}-objdump" CACHE FILEPATH "")
-set(CMAKE_RANLIB       "${TOOLCHAIN_BIN_DIR}/${TOOLCHAIN_TRIPLE}-ranlib"  CACHE FILEPATH "")
+set(CMAKE_READELF      "${TOOLCHAIN_BIN_DIR}/${TOOLCHAIN_TRIPLE}-readelf" CACHE FILEPATH "")
+set(CMAKE_NM           "${TOOLCHAIN_BIN_DIR}/${TOOLCHAIN_TRIPLE}-nm"     CACHE FILEPATH "")
+set(CMAKE_RANLIB       "${TOOLCHAIN_BIN_DIR}/${TOOLCHAIN_TRIPLE}-ranlib" CACHE FILEPATH "")
 
 set(CMAKE_SYSROOT "${MANIFOLD3_SYSROOT}")
 
@@ -111,7 +113,7 @@ endforeach()
 set(_sysroot_identity_error "")
 if(EXISTS "${MANIFOLD3_SYSROOT}/etc/nv_tegra_release")
     file(STRINGS "${MANIFOLD3_SYSROOT}/etc/nv_tegra_release" _tegra_release_line LIMIT_COUNT 1)
-    if(NOT _tegra_release_line MATCHES "R35.*REVISION:[ \t]*5\\.0")
+    if(NOT _tegra_release_line MATCHES "R35.*REVISION:[ \t]*5\\.0([^0-9.]|$)")
         set(_sysroot_identity_error
             "sysroot /etc/nv_tegra_release does not match expected r35.5.0 baseline. Got: ${_tegra_release_line}")
     endif()
