@@ -7,7 +7,7 @@ made after the preceding milestone produces target evidence.
 
 - [x] Create the repository structure.
 - [x] Pin DJI Payload SDK 3.16.0 as a read-only submodule.
-- [x] Document the Manifold 3, Matrice 4T, JetPack, toolchain, and sysroot baselines.
+- [x] Document the Manifold 3, Matrice 4E, JetPack, toolchain, and sysroot baselines.
 - [x] Separate confirmed constraints from deferred implementation decisions.
 
 ## Phase 2: Reproducible Target Build [IN PROGRESS: HOST VERIFIED]
@@ -62,7 +62,7 @@ Start a minimal Payload SDK application on Manifold 3 and exercise its complete 
 
 ### Outcome
 
-Receive one Matrice 4T visible-light stream and expose bounded, owned frames to a consumer.
+Receive one Matrice 4E visible-light stream and expose bounded, owned frames to a consumer.
 
 ### Work
 

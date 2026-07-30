@@ -82,6 +82,17 @@ The key file permissions must remain `600`. Do not wrap the key or regenerate it
 The device is physically isolated and the key is non-sensitive for this lab
 environment.
 
+Git tracks the key as mode `100644` (it only records the executable bit, never
+`0600`), so a fresh clone restores the file as `644`. OpenSSH refuses to use a
+group- or world-readable private key, so after cloning run once:
+
+```bash
+chmod 600 config/manifold3_id_rsa
+```
+
+This key is for local lab use only and is not a leak risk; no rotation,
+allowlisting, or remote-exposure mitigation is required.
+
 ## Cross-Compilation Toolchain
 
 - The target baseline is Manifold 3 with NVIDIA JetPack 5.1.3 / Jetson Linux r35.5.0, Linux kernel 5.10, and glibc 2.31.

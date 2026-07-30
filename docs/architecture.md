@@ -2,11 +2,11 @@
 
 ## System Boundary
 
-The application runs on DJI Manifold 3, receives camera data from a Matrice 4T through DJI Payload SDK, and performs
+The application runs on DJI Manifold 3, receives camera data from a Matrice 4E through DJI Payload SDK, and performs
 target inference with the JetPack-provided TensorRT runtime.
 
 ```text
-Matrice 4T camera
+Matrice 4E camera
     |
     | E-Port V2 and PSDK platform services
     v
@@ -23,7 +23,7 @@ Manifold 3
 ## Primary Data Flow
 
 The planned initial implementation uses decoded image streaming because Manifold 3 exposes this path directly through
-PSDK. Target testing must confirm the selected Matrice 4T source and NV12 mode:
+PSDK. Target testing must confirm the selected Matrice 4E source and NV12 mode:
 
 ```text
 DjiLiveview_StartImageStream
