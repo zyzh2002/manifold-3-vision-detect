@@ -20,7 +20,7 @@ build-*/
 
 # External toolchains and local target sysroot
 .local-toolchains/
-sysroot
+/sysroot
 
 # Optional crosstool-ng build artifacts
 .crosstool-ng-*.log

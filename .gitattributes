@@ -1,0 +1,5 @@
+# Normalize line endings to the repository's native setting on commit and let
+# the working tree use the platform default. Binary assets are never normalized.
+* text=auto
+
+# The committed PSDK submodule carries its own .gitattributes; do not override it.
