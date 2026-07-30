@@ -12,8 +12,12 @@ int main() {
     std::cout << "Manifold 3 vision detect - toolchain C++ smoke test" << '\n';
     std::cout << "__cplusplus = " << __cplusplus << '\n';
 
-    if (sizeof(void *) != 8) {
-        std::cout << "FAIL: unexpected pointer size " << sizeof(void *) << '\n';
+    // Mirror the C smoke test's ABI size checks so both tests verify the same
+    // toolchain facts rather than an asymmetrically weaker subset.
+    if (sizeof(void *) != 8 || sizeof(long) != 8 || sizeof(int) != 4) {
+        std::cout << "FAIL: unexpected type sizes sizeof(void*)=" << sizeof(void *)
+                  << " sizeof(long)=" << sizeof(long)
+                  << " sizeof(int)=" << sizeof(int) << '\n';
         return 1;
     }
 

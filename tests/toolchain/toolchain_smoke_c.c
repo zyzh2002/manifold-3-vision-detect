@@ -9,17 +9,17 @@ int main(void) {
 #error "This smoke test requires C99 or later"
 #endif
 
-    printf("Manifold 3 vision detect - toolchain C smoke test\n");
-    printf("__aarch64__ defined: yes\n");
-    printf("sizeof(void*) = %zu  (expected 8)\n", sizeof(void *));
-    printf("sizeof(long)  = %zu  (expected 8)\n", sizeof(long));
-    printf("sizeof(int)   = %zu  (expected 4)\n", sizeof(int));
+    puts("Manifold 3 vision detect - toolchain C smoke test");
+    puts("__aarch64__ defined: yes");
+    printf("sizeof(void *) = %zu  (expected 8)\n", sizeof(void *));
+    printf("sizeof(long)    = %zu  (expected 8)\n", sizeof(long));
+    printf("sizeof(int)     = %zu  (expected 4)\n", sizeof(int));
 
     if (sizeof(void *) != 8 || sizeof(long) != 8 || sizeof(int) != 4) {
-        printf("FAIL: unexpected type sizes\n");
+        puts("FAIL: unexpected type sizes");
         return 1;
     }
 
-    printf("PASS: toolchain C smoke test\n");
+    puts("PASS: toolchain C smoke test");
     return 0;
 }
