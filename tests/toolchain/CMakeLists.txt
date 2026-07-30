@@ -30,13 +30,18 @@ if(MAX_TARGET_GLIBCXX_VERSION STREQUAL "0.0.0")
     message(FATAL_ERROR "No GLIBCXX symbol versions found in target libstdc++")
 endif()
 
-# Static ELF verification: registered as CTest tests so they run via `ctest`
+# Static ELF verification: registered as CTest tests so they run via `ctest`.
+# LANG tells verify_elf.cmake which expected dynamic-dependency set to enforce
+# (C: libc only; CXX: libstdc++, libgcc_s, libc), which also catches an
+# accidental static linkage of libstdc++/libgcc (the DT_NEEDED entry would
+# vanish). LANG is a scalar so no ;-list argument marshaling is needed.
 add_test(NAME toolchain_smoke_c_elf
     COMMAND ${CMAKE_COMMAND}
         -DBINARY=$<TARGET_FILE:toolchain_smoke_c>
         -DREADELF_EXE=${CMAKE_READELF}
         -DMAX_GLIBC_VERSION=2.31
         -DMAX_GLIBCXX_VERSION=${MAX_TARGET_GLIBCXX_VERSION}
+        -DLANG=C
         -P ${CMAKE_CURRENT_SOURCE_DIR}/verify_elf.cmake
 )
 set_tests_properties(toolchain_smoke_c_elf PROPERTIES
@@ -49,6 +54,7 @@ add_test(NAME toolchain_smoke_cpp_elf
         -DREADELF_EXE=${CMAKE_READELF}
         -DMAX_GLIBC_VERSION=2.31
         -DMAX_GLIBCXX_VERSION=${MAX_TARGET_GLIBCXX_VERSION}
+        -DLANG=CXX
         -P ${CMAKE_CURRENT_SOURCE_DIR}/verify_elf.cmake
 )
 set_tests_properties(toolchain_smoke_cpp_elf PROPERTIES

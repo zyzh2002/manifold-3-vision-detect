@@ -1,14 +1,27 @@
 # ELF verification script for cross-compiled toolchain smoke tests.
 # Usage: cmake -DBINARY=<path> -DREADELF_EXE=<path> -DMAX_GLIBC_VERSION=<version>
-#              -DMAX_GLIBCXX_VERSION=<version> -P verify_elf.cmake
+#              -DMAX_GLIBCXX_VERSION=<version> -DLANG=<C|CXX> -P verify_elf.cmake
 
 cmake_minimum_required(VERSION 3.21)
 
-foreach(_required_variable BINARY READELF_EXE MAX_GLIBC_VERSION MAX_GLIBCXX_VERSION)
+foreach(_required_variable BINARY READELF_EXE MAX_GLIBC_VERSION MAX_GLIBCXX_VERSION LANG)
     if(NOT DEFINED ${_required_variable})
         message(FATAL_ERROR "${_required_variable} must be defined")
     endif()
 endforeach()
+
+# The expected dynamic dependencies are intrinsic to the smoke-test language: a
+# C binary links only libc, while a C++ binary also pulls in libstdc++ and
+# libgcc_s. Asserting the exact set catches an accidental static linkage of
+# libstdc++/libgcc, which would drop the DT_NEEDED entry without any other
+# signal. LANG is a scalar so there is no CMake ;-list argument to marshal.
+if(LANG STREQUAL "C")
+    set(EXPECTED_DEPS "libc.so.6")
+elseif(LANG STREQUAL "CXX")
+    set(EXPECTED_DEPS "libstdc++.so.6;libgcc_s.so.1;libc.so.6")
+else()
+    message(FATAL_ERROR "LANG must be \"C\" or \"CXX\", got: \"${LANG}\"")
+endif()
 
 if(NOT EXISTS "${BINARY}")
     message(FATAL_ERROR "BINARY does not exist: ${BINARY}")
@@ -19,24 +32,26 @@ endif()
 
 set(VERIFY_OK 1)
 
-find_program(FILE_EXE file REQUIRED)
-
+# Compare a required symbol version against the target baseline. Versions are
+# compared component-wise; the shorter side is padded with zeros so a 2-part
+# baseline such as "2.31" still compares correctly against 3-part versions.
 function(check_symbol_version symbol_version maximum_version symbol_family)
     string(REPLACE "." ";" _version_parts "${symbol_version}")
     string(REPLACE "." ";" _maximum_parts "${maximum_version}")
     list(LENGTH _version_parts _version_length)
     list(LENGTH _maximum_parts _maximum_length)
 
-    while(_version_length LESS 3)
+    while(_version_length LESS _maximum_length)
         list(APPEND _version_parts 0)
         list(LENGTH _version_parts _version_length)
     endwhile()
-    while(_maximum_length LESS 3)
+    while(_maximum_length LESS _version_length)
         list(APPEND _maximum_parts 0)
         list(LENGTH _maximum_parts _maximum_length)
     endwhile()
 
-    foreach(_index RANGE 0 2)
+    math(EXPR _last_index "${_version_length} - 1")
+    foreach(_index RANGE 0 ${_last_index})
         list(GET _version_parts ${_index} _version_component)
         list(GET _maximum_parts ${_index} _maximum_component)
         if(_version_component GREATER _maximum_component)
@@ -50,22 +65,27 @@ function(check_symbol_version symbol_version maximum_version symbol_family)
     endforeach()
 endfunction()
 
-# --- Architecture check ---
+# --- ELF header: class, machine, endianness ---
+# Uses the toolchain readelf so the script depends only on READELF_EXE and not
+# on a host `file` installation.
 execute_process(
-    COMMAND ${FILE_EXE} -b "${BINARY}"
-    OUTPUT_VARIABLE _file_out
+    COMMAND ${READELF_EXE} -h "${BINARY}"
+    OUTPUT_VARIABLE _ehdr_out
     OUTPUT_STRIP_TRAILING_WHITESPACE
-    RESULT_VARIABLE _file_rc
+    RESULT_VARIABLE _ehdr_rc
 )
-if(NOT _file_rc EQUAL 0)
-    message(FATAL_ERROR "file command failed on ${BINARY}")
+if(NOT _ehdr_rc EQUAL 0)
+    message(FATAL_ERROR "readelf -h failed on ${BINARY}")
 endif()
-string(FIND "${_file_out}" "ARM aarch64" _arch_pos)
-if(_arch_pos LESS 0)
-    message(SEND_ERROR "FAIL: Expected AArch64 ELF64, got: ${_file_out}")
+if(NOT _ehdr_out MATCHES "Class:[^\n]*ELF64")
+    message(SEND_ERROR "FAIL: Expected ELF class ELF64")
     set(VERIFY_OK 0)
 endif()
-if(NOT _file_out MATCHES "LSB")
+if(NOT _ehdr_out MATCHES "Machine:[^\n]*AArch64")
+    message(SEND_ERROR "FAIL: Expected AArch64 machine")
+    set(VERIFY_OK 0)
+endif()
+if(NOT _ehdr_out MATCHES "Data:[^\n]*little endian")
     message(SEND_ERROR "FAIL: Expected little-endian ELF")
     set(VERIFY_OK 0)
 endif()
@@ -106,28 +126,30 @@ if(NOT _x86_pos EQUAL -1)
 endif()
 
 # --- Dynamic dependencies ---
+# The binary must depend on exactly the expected libraries, no more and no less.
+# This catches an accidental static linkage of libstdc++/libgcc, which would
+# drop the corresponding DT_NEEDED entry without any other signal.
 string(REGEX MATCHALL "NEEDED[^\n]*\\[([^]]+)\\]" _needed_libs "${_dyn_out}")
-set(_found_libc OFF)
-set(_found_libstdcxx OFF)
-set(_found_libgcc_s OFF)
+set(_needed_lib_set "")
 foreach(_entry ${_needed_libs})
     string(REGEX MATCH "\\[([^]]+)\\]" _lib_match "${_entry}")
     set(_lib_name "${CMAKE_MATCH_1}")
-    if(_lib_name STREQUAL "libc.so.6")
-        set(_found_libc ON)
-    elseif(_lib_name STREQUAL "libstdc++.so.6")
-        set(_found_libstdcxx ON)
-    elseif(_lib_name STREQUAL "libgcc_s.so.1")
-        set(_found_libgcc_s ON)
-    elseif(NOT _lib_name STREQUAL "")
-        message(SEND_ERROR "FAIL: Unexpected dynamic dependency: ${_lib_name}")
+    list(APPEND _needed_lib_set "${_lib_name}")
+endforeach()
+
+foreach(_expected ${EXPECTED_DEPS})
+    if(NOT "${_expected}" IN_LIST _needed_lib_set)
+        message(SEND_ERROR "FAIL: Expected dynamic dependency missing: ${_expected}")
         set(VERIFY_OK 0)
     endif()
 endforeach()
-if(NOT _found_libc)
-    message(SEND_ERROR "FAIL: libc.so.6 must be in DT_NEEDED")
-    set(VERIFY_OK 0)
-endif()
+
+foreach(_needed ${_needed_lib_set})
+    if(NOT "${_needed}" IN_LIST EXPECTED_DEPS)
+        message(SEND_ERROR "FAIL: Unexpected dynamic dependency: ${_needed}")
+        set(VERIFY_OK 0)
+    endif()
+endforeach()
 
 # --- Symbol version checks ---
 execute_process(
@@ -135,7 +157,7 @@ execute_process(
     OUTPUT_VARIABLE _ver_out
     OUTPUT_STRIP_TRAILING_WHITESPACE
 )
-string(REGEX MATCHALL "GLIBC_[0-9]+\\.[0-9]+" _glibc_symbols "${_ver_out}")
+string(REGEX MATCHALL "GLIBC_[0-9]+\\.[0-9]+(\\.[0-9]+)?" _glibc_symbols "${_ver_out}")
 list(REMOVE_DUPLICATES _glibc_symbols)
 foreach(_symbol ${_glibc_symbols})
     string(REGEX REPLACE "^GLIBC_" "" _version "${_symbol}")
