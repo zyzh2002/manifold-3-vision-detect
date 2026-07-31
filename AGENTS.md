@@ -35,6 +35,34 @@ cmake --build --preset host-debug
 #   ./scripts/package_dpk.sh            (Phase 6)
 ```
 
+## Skills Management
+
+The vendored Superpowers skills under `.agents/skills/` (everything except the
+project-owned `psdk-deepwiki-research/`) are installed and maintained with the
+`npx skills` CLI (Vercel Labs). `skills-lock.json` is the lock file, with the
+same semantics as npm `package-lock.json`: it records exact upstream hashes so
+skill versions are reproducible across machines and branches.
+
+| Command | Purpose |
+|---|---|
+| `npx skills check` | Compare local hashes against upstream and list available updates |
+| `npx skills add <owner>/<repo>` | Install/upgrade a skill and update the lock file |
+| `npx skills update` | Update all skills and the lock file |
+| `npx skills experimental_install` | Restore skills strictly per the lock file (`npm ci` semantics) |
+
+Rules:
+
+- Only the CLI writes `skills-lock.json`; never hand-edit it. Hand-editing
+  breaks reproducibility, the same way a hand-edited `package-lock.json` does.
+- Run `npx skills check` before upgrading so updates are applied deliberately,
+  not blindly.
+- Do not install skills by hand (git clone / copy). A manual install makes the
+  lock file and the actual install disagree.
+- `npx skills rm` does not update the lock file; removing a skill leaves a
+  stale entry that `experimental_install` will restore.
+- `psdk-deepwiki-research/` is project-owned and intentionally not managed by
+  the CLI; do not install or remove it with `npx skills`.
+
 ## Manifold 3 Device Access
 
 The Matrice 4E is connected to the development host via USB cable. The onboard
