@@ -59,6 +59,13 @@ export MANIFOLD3_TOOLCHAIN_DIR="$(git rev-parse --show-toplevel)/.local-toolchai
 export MANIFOLD3_SYSROOT="$(git rev-parse --show-toplevel)/sysroot"
 ```
 
+Or source the repository helper script, which applies the same defaults and preserves
+any pre-existing values:
+
+```bash
+source scripts/setup_env.sh
+```
+
 The `sysroot/` symlink at the repository root points to the assembled rootfs under `.local-toolchains/`.
 Both `.local-toolchains/` and `sysroot/` are gitignored.
 
