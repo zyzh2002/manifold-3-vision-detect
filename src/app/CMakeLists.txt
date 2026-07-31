@@ -1,3 +1,11 @@
+# The application links libpayloadsdk.a, which only ships for AArch64.
+# Host builds keep platform/core compilable for future unit tests but skip
+# the executable target.
+if(NOT CMAKE_CROSSCOMPILING)
+    message(STATUS "manifold3_vision_detect: skipped (host build)")
+    return()
+endif()
+
 add_executable(manifold3_vision_detect main.cpp)
 
 # Generate app.json from the credential cache variables so user_app_id always
