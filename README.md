@@ -55,7 +55,7 @@ H.264 路径首先用于能力验证和录像，仅在 ImageStream 无法满足�
 ├── README.md
 ├── AGENTS.md
 ├── cmake/                       # Phase 2 构建配置
-├── config/                      # DPK 配置
+├── config/                      # Manifold 3 SSH 访问配置
 ├── docs/
 │   ├── architecture.md          # 高层架构和模块边界
 │   ├── build-environment.md     # 工具链、sysroot、ABI 和链接策略
@@ -113,12 +113,11 @@ export MANIFOLD3_SYSROOT="$(git rev-parse --show-toplevel)/sysroot"
 | `python3` | 辅助脚本、DeepWiki Skill |
 | `binutils` | ELF 文件分析工具（`readelf`） |
 | `file` | ELF 文件类型和架构检测（`file`） |
-| `aarch64-linux-gnu-binutils` | 目标端 AArch64 ELF 验证 |
 
 **Ubuntu / Debian：**
 
 ```bash
-sudo apt install git cmake build-essential python3 binutils file binutils-aarch64-linux-gnu
+sudo apt install git cmake build-essential python3 binutils file
 ```
 
 **Fedora / RHEL：**
@@ -127,8 +126,8 @@ sudo apt install git cmake build-essential python3 binutils file binutils-aarch6
 sudo dnf install git cmake gcc gcc-c++ make python3 binutils file
 ```
 
-> Fedora 下 AArch64 ELF 验证工具（`aarch64-linux-gnu-readelf` 等）可通过安装 `gcc-aarch64-linux-gnu`
-> 获取，或直接使用 Bootlin 工具链自带的 `aarch64-linux-objdump` / `aarch64-linux-readelf`。
+> 自动化 AArch64 ELF 验证使用 Bootlin 工具链自带的 `aarch64-linux-readelf`，
+> 无需额外安装目标架构 binutils 包。
 
 > 交叉编译器（NVIDIA Bootlin GCC 9.3）和 Jetson sysroot 需单独准备，详见 [`docs/build-environment.md`](docs/build-environment.md)。
 
