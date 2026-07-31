@@ -77,7 +77,6 @@ LiveviewCapture::Stats LiveviewCapture::GetStats() const {
 void LiveviewCapture::OnImage(E_DjiLiveViewCameraPosition position, const uint8_t *buf, uint32_t len,
                               T_DjiLiveviewImageInfo imageInfo) {
     (void)position;
-    (void)buf;
 
     auto &capture = Get();
     const int64_t nowUs = std::chrono::duration_cast<std::chrono::microseconds>(Clock::now().time_since_epoch())
@@ -103,6 +102,27 @@ void LiveviewCapture::OnImage(E_DjiLiveViewCameraPosition position, const uint8_
     stats.height = imageInfo.height;
     stats.totalBytes += len;
     stats.totalFrames++;
+
+    // Copy the buffer into the single latest-wins slot; the PSDK buffer is
+    // only valid during the callback.
+    {
+        std::lock_guard<std::mutex> frameLock(capture.frameMutex_);
+        capture.latestFrame_.assign(buf, buf + len);
+        capture.latestWidth_ = imageInfo.width;
+        capture.latestHeight_ = imageInfo.height;
+    }
+}
+
+bool LiveviewCapture::TakeFrame(std::vector<uint8_t> *out, uint32_t *width, uint32_t *height) {
+    std::lock_guard<std::mutex> lock(frameMutex_);
+    if (latestFrame_.empty()) {
+        return false;
+    }
+    *out = std::move(latestFrame_);
+    latestFrame_.clear();
+    *width = latestWidth_;
+    *height = latestHeight_;
+    return true;
 }
 
 } // namespace manifold3

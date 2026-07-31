@@ -17,11 +17,33 @@ configure_file(app.json.in ${CMAKE_CURRENT_BINARY_DIR}/app.json @ONLY)
 # lets the driver resolve the dynamic library correctly.
 target_link_options(manifold3_vision_detect PRIVATE -pthread)
 
+# The app references TensorRtEngine directly. The `inference` static library
+# carries no link requirements (its TRT deps are only on inference_smoke), so
+# the app must resolve the full TensorRT closure itself: libnvinfer pulls
+# libcudla and the DLA libs; libcudla needs libcuda; cuBLAS/cuDNN complete the
+# closure. rpath-link lets the linker resolve DT_NEEDED deps (libcuda,
+# libnvdla_*) from the tegra dir without adding them to DT_NEEDED.
+target_link_directories(manifold3_vision_detect PRIVATE
+    ${CMAKE_SYSROOT}/usr/lib/aarch64-linux-gnu
+    ${CMAKE_SYSROOT}/usr/local/cuda/lib64
+    ${CMAKE_SYSROOT}/usr/lib/aarch64-linux-gnu/tegra
+)
+target_link_options(manifold3_vision_detect PRIVATE
+    "-Wl,-rpath-link,${CMAKE_SYSROOT}/usr/lib/aarch64-linux-gnu"
+    "-Wl,-rpath-link,${CMAKE_SYSROOT}/usr/local/cuda/lib64"
+    "-Wl,-rpath-link,${CMAKE_SYSROOT}/usr/lib/aarch64-linux-gnu/tegra"
+)
+
 target_link_libraries(manifold3_vision_detect PRIVATE
     capture
     core
     platform
+    inference
     ${CMAKE_SOURCE_DIR}/third_party/psdk/psdk_lib/lib/aarch64-linux-gnu-gcc/libpayloadsdk.a
+    nvinfer
+    cudart
+    cublas
+    "-l:libcudnn.so.8"
     m
     dl
 )

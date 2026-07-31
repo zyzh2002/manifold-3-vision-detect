@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <mutex>
+#include <vector>
 
 #include <dji_liveview.h>
 
@@ -9,8 +10,9 @@ namespace manifold3 {
 
 // Starts one Matrice 4E visible-light NV12 image stream and reports frame
 // statistics (count, drops, size, callback interval). The PSDK image callback
-// runs on an SDK-owned thread; the buffer is only valid during the callback
-// and is never retained here.
+// runs on an SDK-owned thread; the PSDK buffer is only valid during the
+// callback, so the latest frame is copied into a bounded latest-wins slot
+// that a consumer drains via TakeFrame().
 class LiveviewCapture {
   public:
     static LiveviewCapture &Get();
@@ -43,6 +45,11 @@ class LiveviewCapture {
     // Thread-safe snapshot of the callback counters.
     Stats GetStats() const;
 
+    // Copies the latest NV12 frame into out; returns false if none is
+    // available. The buffer is owned by the caller and the latest-wins slot
+    // is cleared, so a slow consumer never accumulates memory.
+    bool TakeFrame(std::vector<uint8_t> *out, uint32_t *width, uint32_t *height);
+
     LiveviewCapture(const LiveviewCapture &) = delete;
     LiveviewCapture &operator=(const LiveviewCapture &) = delete;
 
@@ -58,6 +65,10 @@ class LiveviewCapture {
     mutable std::mutex statsMutex_;
     Stats stats_;
     uint64_t lastIntervalUs_ = 0;
+    std::mutex frameMutex_;
+    std::vector<uint8_t> latestFrame_;
+    uint32_t latestWidth_ = 0;
+    uint32_t latestHeight_ = 0;
 };
 
 } // namespace manifold3
