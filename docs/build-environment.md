@@ -71,6 +71,10 @@ Environment variables `MANIFOLD3_TOOLCHAIN_DIR` and `MANIFOLD3_SYSROOT` must be 
 `manifold3-cross-release` preset or an IDE session that reads `build-cross/compile_commands.json`. The reserved
 `host-debug` preset does not require them.
 
+The repository `.clangd` configuration reads `build-cross/compile_commands.json`. Because `build-cross/` is
+gitignored, run `cmake --preset manifold3-cross-release` once after a fresh clone before expecting clangd
+diagnostics or code navigation.
+
 ### Global toolchain install (optional)
 
 If you prefer a system-wide toolchain:
