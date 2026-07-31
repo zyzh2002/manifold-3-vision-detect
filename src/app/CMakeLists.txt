@@ -18,6 +18,7 @@ configure_file(app.json.in ${CMAKE_CURRENT_BINARY_DIR}/app.json @ONLY)
 target_link_options(manifold3_vision_detect PRIVATE -pthread)
 
 target_link_libraries(manifold3_vision_detect PRIVATE
+    capture
     core
     platform
     ${CMAKE_SOURCE_DIR}/third_party/psdk/psdk_lib/lib/aarch64-linux-gnu-gcc/libpayloadsdk.a
