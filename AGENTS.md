@@ -207,7 +207,7 @@ allowlisting, or remote-exposure mitigation is required.
 
 ## Phase 2 Progress
 
-Phase 2 host-side cross-compilation is complete. The following items have been verified without target hardware:
+Phase 2 is complete, including target-side validation on Manifold 3.
 
 What exists:
 - Directory structure
@@ -216,6 +216,7 @@ What exists:
 - Toolchain smoke tests under `tests/toolchain/`
 - `.clangd` LSP configuration
 - PSDK git submodule pinned to `3.16.0`
+- `scripts/setup_env.sh` for exporting the cross-build environment variables
 
 What is verified on the host:
 - NVIDIA Bootlin GCC 9.3.0 toolchain (SHA256: `7725b460...`)
@@ -224,15 +225,13 @@ What is verified on the host:
 - ELF static checks: architecture, dynamic interpreter, dependencies, GLIBC/GLIBCXX versions
 - clangd reports no errors on existing source files with the cross-compile compilation database
 
-What is NOT yet verified (requires Manifold 3 hardware):
-- Target runtime execution
-- Actual GLIBC/GLIBCXX symbol availability on the device
-- CUDA/TensorRT runtime compatibility
+What is verified on Manifold 3 (target):
+- C and C++ smoke binaries run successfully
+- Target environment matches the baseline: Jetson Linux R35.5.0, kernel 5.10.192-tegra,
+  glibc 2.31, CUDA 11.4.19, TensorRT 8.5.2, cuDNN 8.6.0
+- Dynamic dependencies resolve against the device libraries; GLIBC_2.17 requirements are satisfied
+- No sysroot overlay is required
 
-Remaining Phase 2 target work:
-1. Run the C and C++ smoke binaries on Manifold 3.
-2. Record target GLIBC/GLIBCXX availability and any sysroot mismatch.
-
-Phase 3 preparation may proceed without claiming Phase 2 runtime completion:
+Phase 3 work is now unblocked:
 1. Port the required PSDK platform layer into `src/platform/`.
 2. Implement the minimal PSDK lifecycle and DPK application.

@@ -78,15 +78,16 @@ H.264 路径首先用于能力验证和录像，仅在 ImageStream 无法满足�
 
 ## 当前范围
 
-仓库已完成 Phase 2 的主机侧交叉编译和 ELF 静态验证。Phase 2 的目标机运行验证仍需等待 Manifold 3
-硬件，完成后才能关闭该阶段；Phase 3 的代码工作可在此期间准备，但不能替代目标验证。
+Phase 2 已全部完成，包括主机侧交叉构建与目标机运行验证：
 
-Phase 2 主机侧已完成：
 1. NVIDIA Bootlin GCC 9.3.0 工具链下载与校验。
 2. Jetson Linux r35.5.0 sysroot 组装（BSP + sample rootfs + `apply_binaries.sh`）。
 3. CMake 交叉编译工具链配置（`cmake/aarch64-manifold3.cmake`）。
 4. 最小 C/C++ 目标程序编译与 ELF 静态验证。
-5. 待完成：在 Manifold 3 上运行目标程序（需要硬件）。
+5. 冒烟程序已在 Manifold 3 上运行通过：目标环境与基线一致（R35.5.0 / kernel 5.10.192 / glibc 2.31 /
+   CUDA 11.4.19 / TensorRT 8.5.2 / cuDNN 8.6.0），动态依赖全部解析，无需 sysroot overlay。
+
+Phase 3（最小 PSDK 生命周期与 DPK 应用）可以开始。
 
 更细的实现选择保留到对应阶段获取实测数据后再决定，详见 [`docs/plan.md`](docs/plan.md)。
 
@@ -97,6 +98,12 @@ Phase 2 主机侧已完成：
 ```bash
 export MANIFOLD3_TOOLCHAIN_DIR="$(git rev-parse --show-toplevel)/.local-toolchains/bootlin-gcc-9.3-nvidia"
 export MANIFOLD3_SYSROOT="$(git rev-parse --show-toplevel)/sysroot"
+```
+
+或直接 source 仓库提供的脚本（默认值与上面相同，保留已有变量）：
+
+```bash
+source scripts/setup_env.sh
 ```
 
 完整的环境来源、依赖分类、ELF 验证要求和构建命令见 [`docs/build-environment.md`](docs/build-environment.md)。

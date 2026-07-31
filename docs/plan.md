@@ -10,7 +10,7 @@ made after the preceding milestone produces target evidence.
 - [x] Document the Manifold 3, Matrice 4E, JetPack, toolchain, and sysroot baselines.
 - [x] Separate confirmed constraints from deferred implementation decisions.
 
-## Phase 2: Reproducible Target Build [IN PROGRESS: HOST VERIFIED]
+## Phase 2: Reproducible Target Build [DONE]
 
 ### Outcome
 
@@ -27,13 +27,21 @@ sysroot, then run it on Manifold 3.
 - [x] Compile a minimal C and C++ target program.
 - [x] Verify ELF architecture, dynamic dependencies, `GLIBC_*`, and `GLIBCXX_*` requirements
   (host-side static checks).
-- [ ] Run the target program on Manifold 3.
+- [x] Run the target program on Manifold 3.
 
 ### Exit Criteria
 
 - The build does not resolve target headers or libraries from host x86_64 paths.
 - The generated ELF is AArch64 and starts on the target firmware.
 - Any difference between the standard r35.5.0 sysroot and Manifold 3 is recorded before adding an overlay.
+
+### Target Validation Record
+
+- C and C++ smoke binaries run on Manifold 3 and report PASS.
+- Target environment matches the baseline: Jetson Linux R35.5.0, kernel 5.10.192-tegra, glibc 2.31,
+  CUDA 11.4.19, TensorRT 8.5.2, cuDNN 8.6.0.
+- Dynamic dependencies resolve against device libraries; required `GLIBC_2.17` is available.
+- No sysroot overlay is required.
 
 ## Phase 3: Minimal PSDK and DPK Application
 
