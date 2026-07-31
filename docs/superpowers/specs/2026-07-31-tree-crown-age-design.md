@@ -19,6 +19,23 @@ classification model is stable and enough samples are collected.
 - Age labels: plantations / sample plots with known planting records provide ground
   truth; labels are converted to 5-year bins (e.g. 0-5, 5-10, 10-15, ...).
 - Target device: Manifold 3, JetPack 5.1.3, TensorRT 8.5.2, CUDA 11.4.
+- Target hardware: Jetson Orin NX 16 GB, rated 100 TOPS (INT8) across GPU + DLA.
+
+## Precision Selection
+
+Manifold 3's Orin (Ampere) Tensor Cores accelerate FP16 and INT8 strongly (the rated
+100 TOPS is INT8); FP32 runs on CUDA cores without Tensor Core acceleration. The
+per-frame budget is 33 ms at 30 fps.
+
+| Precision | Throughput vs FP32 | Accuracy loss | Decision |
+|---|---|---|---|
+| FP32 | 1x (baseline) | None | Not chosen: leaves Tensor Core performance unused |
+| **FP16** | ~2x | Usually <0.5% mAP | **Chosen**: negligible loss for YOLO-style detection, default embedded choice |
+| INT8 | ~3-4x | ~1-2% mAP | Deferred: requires a calibration set and is only worth it if measured latency exceeds the budget (decision triggers in `docs/plan.md`) |
+
+Training precision is decoupled from inference precision: train on PC with FP32/AMP,
+verify the exported ONNX with onnxruntime (FP32 baseline), then select FP16 at engine
+conversion time on the device.
 
 ## Model Approach
 
@@ -42,12 +59,16 @@ Alternatives considered and rejected:
 
 ### Training (PC side)
 
+- Training GPU: RTX 2070 Super (8 GB GDDR6, Turing) is sufficient for YOLO11s-seg at
+  1280x1280 with batch 4-8 and AMP mixed precision (ultralytics default). If VRAM is
+  tight, start at 640x640 and fine-tune at 1280x1280.
 - Annotate with polygon masks + species + age bin (CVAT or LabelMe).
 - Train with ultralytics YOLO11-seg with a customized multi-task head.
 - Input resolution: 1280x1280 (better for small crowns and overlap than 640).
 - Inference precision: FP16.
 - Export: fixed-shape ONNX at 1280x1280, then convert to a TensorRT engine on the
-  device with `trtexec --onnx=model.onnx --saveEngine=model.engine --fp16`.
+  device with `trtexec --onnx=model.onnx --saveEngine=model.engine --fp16`. Engine
+  conversion runs on the device (TensorRT 8.5.2); the training GPU is not involved.
 
 ## Device-Side Integration (Phase 5, `src/inference/`, C++17)
 
