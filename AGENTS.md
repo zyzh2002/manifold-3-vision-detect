@@ -26,12 +26,16 @@ Build commands for Phase 2 and beyond:
 cmake --preset manifold3-cross-release
 cmake --build --preset manifold3-cross-release
 
+# Build, deploy to Manifold 3, and run the application in the foreground
+./scripts/deploy.sh 192.168.42.120 run
+# Skip rebuild and only redeploy + run
+./scripts/deploy.sh 192.168.42.120 --no-build run
+
 # Reserved host build for future unit tests
 cmake --preset host-debug
 cmake --build --preset host-debug
 
 # Future commands (not yet implemented):
-#   ./scripts/deploy.sh <manifold3-ip>  (Phase 3)
 #   ./scripts/package_dpk.sh            (Phase 6)
 ```
 

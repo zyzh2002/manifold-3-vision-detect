@@ -59,6 +59,8 @@ Start a minimal Payload SDK application on Manifold 3 and exercise its complete 
 - [x] Add a development `app.json` without committing credentials. The file is generated from `src/app/app.json.in`
   by CMake so `user_app_id` always matches the compiled-in application ID.
 - [x] Use the PSDK-provided `build_dpk.sh` to generate the development package.
+- [x] Add `scripts/deploy.sh` for direct binary deployment and foreground runs during target debugging, so
+      iteration does not require a DPK install per change.
 - [ ] Build, install, start, stop, update, and uninstall the DPK. Installation requires the DJI Pilot 2
       developer workflow; the target validation record below covers what has been verified without it.
 

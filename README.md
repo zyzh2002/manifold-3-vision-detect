@@ -60,7 +60,7 @@ H.264 路径首先用于能力验证和录像，仅在 ImageStream 无法满足�
 │   ├── architecture.md          # 高层架构和模块边界
 │   ├── build-environment.md     # 工具链、sysroot、ABI 和链接策略
 │   └── plan.md                  # 结果导向的实施里程碑
-├── scripts/                     # 预留脚本目录（部署、打包等，规划中）
+├── scripts/                     # 部署与打包脚本（deploy.sh 可直接部署调试）
 ├── src/
 │   ├── app/                     # 应用入口和模块组装
 │   ├── capture/                 # PSDK 视频帧接收
@@ -88,7 +88,7 @@ Phase 2 已全部完成，包括主机侧交叉构建与目标机运行验证：
    CUDA 11.4.19 / TensorRT 8.5.2 / cuDNN 8.6.0），动态依赖全部解析，无需 sysroot overlay。
 
 Phase 3（最小 PSDK 生命周期与 DPK 应用）进行中：
-- 已完成：platform 层移植（OSAL/FS/Socket/USB Bulk）、`src/core/` 最小生命周期、`src/app/` 入口、CMake 集成与链接、开发 DPK 生成（`build_dpk.sh`）
+- 已完成：platform 层移植（OSAL/FS/Socket/USB Bulk）、`src/core/` 最小生命周期、`src/app/` 入口、CMake 集成与链接、开发 DPK 生成（`build_dpk.sh`）、直接部署调试脚本（`scripts/deploy.sh <ip> run`）
 - 设备已验证：二进制运行、handler 注册、FunctionFS 通道就绪、占位凭据拒绝路径
 - 待完成：DJI Pilot 2 安装验证 DPK 生命周期；提供真实 DJI 开发者凭据后验证连接飞机
 
