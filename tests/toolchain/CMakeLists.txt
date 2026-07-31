@@ -61,8 +61,10 @@ set_tests_properties(toolchain_smoke_cpp_elf PROPERTIES
     LABELS "toolchain;static"
 )
 
-# Convenience target that runs both verifications after build
-add_custom_target(verify_toolchain_smoke
+# Convenience target that runs both verifications after build. ALL makes the
+# default build (including `cmake --build --preset manifold3-cross-release`)
+# run the ELF checks automatically.
+add_custom_target(verify_toolchain_smoke ALL
     COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure -L toolchain
     DEPENDS toolchain_smoke_c toolchain_smoke_cpp
     COMMENT "Verifying AArch64 ELF properties of toolchain smoke tests"

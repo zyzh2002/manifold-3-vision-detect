@@ -30,7 +30,6 @@
         {
             "name": "manifold3-cross-release",
             "configurePreset": "manifold3-cross-release",
-            "targets": ["verify_toolchain_smoke"],
             "jobs": 0
         },
         {
