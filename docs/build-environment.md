@@ -295,7 +295,12 @@ These match the JetPack 5.1.3 baseline (CUDA 11.4, TensorRT 8.5.2) recorded in "
 | `/usr/local/cuda/include/` (whole tree) | `usr/local/cuda/include/` | CUDA toolkit headers (`cuda_runtime.h`, `cuda.h`, `crt/host_config.h`, ...) |
 | `/usr/lib/aarch64-linux-gnu/libnvinfer.so*` | `usr/lib/aarch64-linux-gnu/` | TensorRT dev symlinks + `libnvinfer.so.8.5.2` |
 | `/usr/lib/aarch64-linux-gnu/libnvonnxparser.so*` | `usr/lib/aarch64-linux-gnu/` | ONNX parser dev symlinks + `libnvonnxparser.so.8.5.2` |
+| `/usr/lib/aarch64-linux-gnu/libnvinfer_plugin.so*` | `usr/lib/aarch64-linux-gnu/` | TensorRT plugin dev symlinks + `libnvinfer_plugin.so.8.5.2` (from `libnvinfer-plugin-dev`) |
 | `/usr/local/cuda/lib64/libcudart.so*` | `usr/local/cuda/lib64/` | CUDA runtime dev symlinks + `libcudart.so.11.4.298` |
+| `/usr/local/cuda/lib64/libcudla.so*` | `usr/local/cuda/lib64/` | CUDA DLA runtime dev symlinks + `libcudla.so.1.0.0` (from `libcudla-11-4`) |
+
+`libnvdla_compiler.so` and `libnvdla_runtime.so` were already present in the Phase 2 sysroot at
+`usr/lib/aarch64-linux-gnu/tegra/`; no copy was needed (verified identical size on device and sysroot).
 
 The library symlink chains are restored to exactly match the device layout (plain `scp` dereferences symlinks,
 so the duplicated full copies were removed and re-linked):
@@ -305,8 +310,12 @@ libnvinfer.so -> libnvinfer.so.8.5.2
 libnvinfer.so.8 -> libnvinfer.so.8.5.2
 libnvonnxparser.so -> libnvonnxparser.so.8
 libnvonnxparser.so.8 -> libnvonnxparser.so.8.5.2
+libnvinfer_plugin.so -> libnvinfer_plugin.so.8.5.2
+libnvinfer_plugin.so.8 -> libnvinfer_plugin.so.8.5.2
 libcudart.so -> libcudart.so.11.0
 libcudart.so.11.0 -> libcudart.so.11.4.298
+libcudla.so -> libcudla.so.1
+libcudla.so.1 -> libcudla.so.1.0.0
 ```
 
 ### Verification
@@ -317,8 +326,8 @@ bash scripts/check_inference_sysroot.sh
 ```
 
 The helper checks that `NvInfer.h`, `NvOnnxParser.h`, `cuda_runtime.h`, `cuda.h`, `crt/host_config.h`,
-`libnvinfer.so`, `libnvonnxparser.so`, and `libcudart.so` resolve under the sysroot (honors
-`MANIFOLD3_SYSROOT` when set).
+`libnvinfer.so`, `libnvonnxparser.so`, `libnvinfer_plugin.so`, `libcudart.so`, and `libcudla.so` resolve
+under the sysroot (honors `MANIFOLD3_SYSROOT` when set).
 
 Note: this extension supersedes the deferred "CUDA Toolkit" and "TensorRT" rows of the Phase 2 table above for
 development files; cuDNN development files remain deferred until a build requires them.
