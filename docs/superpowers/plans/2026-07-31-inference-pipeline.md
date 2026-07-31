@@ -1340,13 +1340,19 @@ int main(int argc, char **argv) {
 
 - [ ] **Step 3: Link `inference` into the app**
 
-Modify `src/app/CMakeLists.txt` — the app references `TensorRtEngine` directly, so it must resolve the nvinfer/cudart symbols pulled in by the static `inference` library:
+Modify `src/app/CMakeLists.txt` — the app references `TensorRtEngine` directly. Task 4's `inference` static library carries NO link requirements (its TRT deps are only on `inference_smoke`), so the app must resolve the full TensorRT closure itself: `nvinfer`, `cudart`, `cublas`, `-l:libcudnn.so.8`, plus the tegra link dir (`libnvdla_compiler.so`) and rpath-link options that Task 4's `inference_smoke` used (see `src/inference/CMakeLists.txt` after Task 4 for the exact working pattern):
 
 ```cmake
 if(CMAKE_CROSSCOMPILING)
     target_link_directories(manifold3_vision_detect PRIVATE
         ${CMAKE_SYSROOT}/usr/lib/aarch64-linux-gnu
         ${CMAKE_SYSROOT}/usr/local/cuda/lib64
+        ${CMAKE_SYSROOT}/usr/lib/aarch64-linux-gnu/tegra
+    )
+    target_link_options(manifold3_vision_detect PRIVATE
+        "-Wl,-rpath-link,${CMAKE_SYSROOT}/usr/lib/aarch64-linux-gnu"
+        "-Wl,-rpath-link,${CMAKE_SYSROOT}/usr/local/cuda/lib64"
+        "-Wl,-rpath-link,${CMAKE_SYSROOT}/usr/lib/aarch64-linux-gnu/tegra"
     )
 endif()
 
@@ -1358,10 +1364,14 @@ target_link_libraries(manifold3_vision_detect PRIVATE
     ${CMAKE_SOURCE_DIR}/third_party/psdk/psdk_lib/lib/aarch64-linux-gnu-gcc/libpayloadsdk.a
     nvinfer
     cudart
+    cublas
+    "-l:libcudnn.so.8"
     m
     dl
 )
 ```
+
+(If Task 4 ended up putting the closure on `inference` PUBLIC instead, mirror that exact CMake instead — the rule is: the app link must resolve every undefined TensorRT/CUDA symbol, verified by a clean link with no `--allow-shlib-undefined`.)
 
 - [ ] **Step 4: Cross-compile and run on the target**
 
