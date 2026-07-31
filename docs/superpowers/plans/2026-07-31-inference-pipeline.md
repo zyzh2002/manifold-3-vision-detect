@@ -47,15 +47,19 @@ Expected: `libnvinfer-dev 8.5.2-1+cuda11.4` (arm64) and the corresponding CUDA r
 From the device copy (paths confirmed present in Phase 4):
 
 ```bash
-# Headers
+# TensorRT headers (device: /usr/include/aarch64-linux-gnu/)
 scp -i config/manifold3_id_rsa dji@192.168.42.120:/usr/include/aarch64-linux-gnu/NvInfer*.h sysroot/usr/include/aarch64-linux-gnu/
 scp -i config/manifold3_id_rsa dji@192.168.42.120:/usr/include/aarch64-linux-gnu/NvOnnx*.h sysroot/usr/include/aarch64-linux-gnu/
-scp -i config/manifold3_id_rsa dji@192.168.42.120:/usr/include/aarch64-linux-gnu/cuda_runtime.h sysroot/usr/include/aarch64-linux-gnu/
-# Libraries (dev symlinks + runtime .so.8.5.2)
+# CUDA Toolkit headers (device: /usr/local/cuda/include/) - the whole tree,
+# because cuda_runtime.h pulls in cuda.h, crt/host_config.h, etc.
+mkdir -p sysroot/usr/local/cuda/include
+scp -r -i config/manifold3_id_rsa dji@192.168.42.120:/usr/local/cuda/include/. sysroot/usr/local/cuda/include/
+# TensorRT libraries (dev symlinks + runtime .so.8.5.2)
 scp -i config/manifold3_id_rsa dji@192.168.42.120:/usr/lib/aarch64-linux-gnu/libnvinfer.so* sysroot/usr/lib/aarch64-linux-gnu/
 scp -i config/manifold3_id_rsa dji@192.168.42.120:/usr/lib/aarch64-linux-gnu/libnvonnxparser.so* sysroot/usr/lib/aarch64-linux-gnu/
-scp -i config/manifold3_id_rsa dji@192.168.42.120:/usr/local/cuda/lib64/libcudart.so* sysroot/usr/local/cuda/lib64/ 2>/dev/null || \
-  scp -i config/manifold3_id_rsa dji@192.168.42.120:/usr/lib/aarch64-linux-gnu/libcudart.so* sysroot/usr/lib/aarch64-linux-gnu/
+# CUDA runtime libraries (device: /usr/local/cuda/lib64/)
+mkdir -p sysroot/usr/local/cuda/lib64
+scp -r -i config/manifold3_id_rsa dji@192.168.42.120:/usr/local/cuda/lib64/libcudart.so* sysroot/usr/local/cuda/lib64/
 ```
 
 Record the exact source paths and package versions in `docs/build-environment.md` under a new "Phase 5 Sysroot Extension" section. If device access is unavailable, download the matching r35.5.0 `.deb` packages from NVIDIA (same versions) and extract with `dpkg-deb -x` into the sysroot; record which packages.
@@ -72,11 +76,14 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SYSROOT="${MANIFOLD3_SYSROOT:-${REPO_ROOT}/sysroot}"
 HDR="${SYSROOT}/usr/include/aarch64-linux-gnu"
 LIB="${SYSROOT}/usr/lib/aarch64-linux-gnu"
+CUDA_HDR="${SYSROOT}/usr/local/cuda/include"
+CUDA_LIB="${SYSROOT}/usr/local/cuda/lib64"
 missing=0
-for f in "${HDR}/NvInfer.h" "${HDR}/NvOnnxParser.h" "${HDR}/cuda_runtime.h"; do
+for f in "${HDR}/NvInfer.h" "${HDR}/NvOnnxParser.h" "${CUDA_HDR}/cuda_runtime.h" \
+         "${CUDA_HDR}/cuda.h" "${CUDA_HDR}/crt/host_config.h"; do
     if [ ! -f "$f" ]; then echo "MISSING $f"; missing=1; fi
 done
-for f in "${LIB}/libnvinfer.so" "${LIB}/libnvonnxparser.so" "${LIB}/libcudart.so"; do
+for f in "${LIB}/libnvinfer.so" "${LIB}/libnvonnxparser.so" "${CUDA_LIB}/libcudart.so"; do
     if [ ! -e "$f" ]; then echo "MISSING $f"; missing=1; fi
 done
 if [ "$missing" -eq 1 ]; then echo "FAIL"; exit 1; fi
@@ -106,7 +113,7 @@ git commit -m "feat: extend sysroot with CUDA/TensorRT dev files for phase 5"
 - Create: `scripts/generate_dummy_onnx.py`
 
 **Interfaces:**
-- Produces: `build/dummy_yolo11_seg.onnx` with the real YOLO11-seg output shapes at 1280x1280 input: `output0 [1, 6+32+4, 33600]`, `output1 [1, 32, 160, 160]`. This lets Tasks 3-5 develop against the exact postprocessing shapes before a real model exists. Constants used by Task 4/5: `kInputSize=1280`, `kNumSpecies=2`, `kNumAgeBins=5`, `kNumClasses=7` (=species+age), `kNumMaskCoeffs=32`, `kNumAnchors=33600`, `kMaskProtoH=160`, `kMaskProtoW=160`.
+- Produces: `build/dummy_yolo11_seg.onnx` with the real YOLO11-seg output shapes at 1280x1280 input: `output0 [1, 4+7+32, 25600]` (=43 channels), `output1 [1, 32, 25600]`, `output2 [1, 32, 160, 160]`. This lets Tasks 3-5 develop against the exact postprocessing shapes before a real model exists. Constants used by Task 4/5: `kInputSize=1280`, `kNumSpecies=2`, `kNumAgeBins=5`, `kNumClasses=7` (=species+age), `kNumMaskCoeffs=32`, `kNumAnchors=25600` (single-stride 160x160 grid), `kMaskProtoH=160`, `kMaskProtoW=160`.
 
 - [ ] **Step 1: Write the generator script**
 
@@ -131,7 +138,7 @@ K_NUM_CLASSES = K_NUM_SPECIES + K_NUM_AGE_BINS  # 7
 K_NUM_MASK_COEFFS = 32
 K_INPUT_SIZE = 1280
 K_FEAT = 160  # 1280 / 8
-K_ANCHORS = 160 * 160  # 33600 for one stride; keep single-stride for the dummy
+K_ANCHORS = 160 * 160  # 25600, single-stride 160x160 grid (real model concatenates 3 strides into 33600)
 K_PROTO = 32
 
 K_CLS_CHANNELS = 4 + K_NUM_CLASSES + K_NUM_MASK_COEFFS  # 43
@@ -1043,9 +1050,11 @@ if(CMAKE_CROSSCOMPILING)
     target_sources(inference PRIVATE tensorrt_engine.cpp)
     target_include_directories(inference PRIVATE
         ${CMAKE_SYSROOT}/usr/include/aarch64-linux-gnu
+        ${CMAKE_SYSROOT}/usr/local/cuda/include
     )
     target_link_directories(inference PRIVATE
         ${CMAKE_SYSROOT}/usr/lib/aarch64-linux-gnu
+        ${CMAKE_SYSROOT}/usr/local/cuda/lib64
     )
     target_link_libraries(inference PRIVATE nvinfer cudart)
 endif()
@@ -1056,9 +1065,11 @@ if(CMAKE_CROSSCOMPILING)
     target_include_directories(inference_smoke PRIVATE
         ${CMAKE_SOURCE_DIR}/src
         ${CMAKE_SYSROOT}/usr/include/aarch64-linux-gnu
+        ${CMAKE_SYSROOT}/usr/local/cuda/include
     )
     target_link_directories(inference_smoke PRIVATE
         ${CMAKE_SYSROOT}/usr/lib/aarch64-linux-gnu
+        ${CMAKE_SYSROOT}/usr/local/cuda/lib64
     )
     target_link_libraries(inference_smoke PRIVATE inference nvinfer cudart)
 endif()
@@ -1329,15 +1340,24 @@ int main(int argc, char **argv) {
 
 - [ ] **Step 3: Link `inference` into the app**
 
-Modify `src/app/CMakeLists.txt` `target_link_libraries`:
+Modify `src/app/CMakeLists.txt` — the app references `TensorRtEngine` directly, so it must resolve the nvinfer/cudart symbols pulled in by the static `inference` library:
 
 ```cmake
+if(CMAKE_CROSSCOMPILING)
+    target_link_directories(manifold3_vision_detect PRIVATE
+        ${CMAKE_SYSROOT}/usr/lib/aarch64-linux-gnu
+        ${CMAKE_SYSROOT}/usr/local/cuda/lib64
+    )
+endif()
+
 target_link_libraries(manifold3_vision_detect PRIVATE
     capture
     core
     platform
     inference
     ${CMAKE_SOURCE_DIR}/third_party/psdk/psdk_lib/lib/aarch64-linux-gnu-gcc/libpayloadsdk.a
+    nvinfer
+    cudart
     m
     dl
 )
