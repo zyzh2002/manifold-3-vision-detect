@@ -43,7 +43,7 @@ sysroot, then run it on Manifold 3.
 - Dynamic dependencies resolve against device libraries; required `GLIBC_2.17` is available.
 - No sysroot overlay is required.
 
-## Phase 3: Minimal PSDK and DPK Application
+## Phase 3: Minimal PSDK and DPK Application [IN PROGRESS]
 
 ### Outcome
 
@@ -51,20 +51,31 @@ Start a minimal Payload SDK application on Manifold 3 and exercise its complete 
 
 ### Work
 
-- [ ] Port the required Linux OSAL, socket, filesystem, logging, and Manifold 3 USB Bulk handlers from the PSDK
+- [x] Port the required Linux OSAL, socket, filesystem, logging, and Manifold 3 USB Bulk handlers from the PSDK
   samples into `src/platform/`.
-- [ ] Add the minimal PSDK lifecycle under `src/core/`.
-- [ ] Link PSDK 3.16.0 with the smallest required system libraries.
-- [ ] Add a minimal application entry point under `src/app/`.
-- [ ] Add a development `app.json` without committing credentials.
-- [ ] Use the PSDK-provided `build_dpk.sh` to generate the development package.
-- [ ] Build, install, start, stop, update, and uninstall the DPK.
+- [x] Add the minimal PSDK lifecycle under `src/core/`.
+- [x] Link PSDK 3.16.0 with the smallest required system libraries.
+- [x] Add a minimal application entry point under `src/app/`.
+- [x] Add a development `app.json` without committing credentials. The file is generated from `src/app/app.json.in`
+  by CMake so `user_app_id` always matches the compiled-in application ID.
+- [x] Use the PSDK-provided `build_dpk.sh` to generate the development package.
+- [ ] Build, install, start, stop, update, and uninstall the DPK. Installation requires the DJI Pilot 2
+      developer workflow; the target validation record below covers what has been verified without it.
 
 ### Exit Criteria
 
-- PSDK initializes and connects to the aircraft.
+- PSDK initializes and connects to the aircraft. (Pending real DJI developer credentials; the placeholder
+  credential path rejects with a clear error and exit code 1.)
 - Logs are available through the supported Manifold 3 application workflow.
-- The DPK lifecycle works before video capture or TensorRT is introduced.
+- The DPK lifecycle works before video capture or TensorRT is introduced. (Pending Pilot-based install test.)
+
+### Target Validation Record (Phase 3)
+
+- The cross-compiled AArch64 binary runs on Manifold 3.
+- Platform handler registration (OSAL, logger console, USB Bulk, socket, filesystem) succeeds.
+- USB FunctionFS channels are active on the device (`/dev/usb-ffs/bulk2`..`bulk5` mounted).
+- Placeholder credentials are rejected with a descriptive error and exit code 1, as designed.
+- Development DPK package builds successfully (`manifold3-vision-detect_v01.00.00.00.dpk`).
 
 ## Phase 4: Single-Stream Video Capture
 

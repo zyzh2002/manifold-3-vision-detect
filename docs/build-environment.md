@@ -219,7 +219,24 @@ cd Linux_for_Tegra
 cd "$(git rev-parse --show-toplevel)"
 ln -sf .local-toolchains/downloads/Linux_for_Tegra/rootfs sysroot
 
-# 6. Set environment
+# 6. Relativize absolute .so symlinks in the sysroot
+#
+# The Ubuntu 20.04 rootfs ships dev symlinks such as libpthread.so ->
+# /lib/aarch64-linux-gnu/libpthread.so.0. Cross-linkers do not apply the
+# sysroot prefix to absolute symlink targets, fall back to the static archive,
+# and then fail on GLIBC_PRIVATE symbols (e.g. `_dl_pagesize` from
+# libpthread.a). Since /lib is merged into /usr/lib, fixing the links under
+# usr/lib/aarch64-linux-gnu is sufficient.
+cd sysroot/usr/lib/aarch64-linux-gnu
+for l in lib*.so lib*.so.*; do
+    [ -L "$l" ] || continue
+    t=$(readlink "$l")
+    case "$t" in
+        /*) b=$(basename "$t"); [ -e "$b" ] && ln -sfn "$b" "$l";;
+    esac
+done
+
+# 7. Set environment
 export MANIFOLD3_SYSROOT="$(pwd)/sysroot"
 ```
 
@@ -247,13 +264,37 @@ By default, the toolchain rejects a sysroot that lacks a matching r35.5.0 `/etc/
 `-DMANIFOLD3_ALLOW_UNVERIFIED_SYSROOT=ON` only when target measurements establish and document why a different or
 device-derived sysroot is required.
 
+## Development Credentials
+
+The PSDK connects to the aircraft only with real DJI developer credentials
+(App ID, App Key, App License, developer account). DJI does not provide
+official sample credentials; the `164884` value in the PSDK sample `app.json`
+is only a format example and has no matching key.
+
+Credentials are injected at build time and are never committed:
+
+```bash
+cmake --preset manifold3-cross-release \
+    -DMANIFOLD3_APP_ID=<id> \
+    -DMANIFOLD3_APP_KEY=<key> \
+    -DMANIFOLD3_APP_LICENSE=<license> \
+    -DMANIFOLD3_APP_NAME=<name> \
+    -DMANIFOLD3_DEVELOPER_ACCOUNT=<account>
+```
+
+The defaults are `your_app_*` placeholders. The application rejects them with
+a descriptive error and exit code 1 at startup, and `app.json` is generated
+from the same CMake variables so `user_app_id` always matches the compiled-in
+ID (a DPK install requirement). DPK packaging, installation, start, stop, and
+uninstall do not require valid credentials; only the aircraft connection does.
+
 ## Link Policy
 
 The minimal PSDK application links:
 
 ```text
 third_party/psdk/psdk_lib/lib/aarch64-linux-gnu-gcc/libpayloadsdk.a
-Threads::Threads
+-pthread (link option, not -lpthread)
 libm
 libdl
 ```
