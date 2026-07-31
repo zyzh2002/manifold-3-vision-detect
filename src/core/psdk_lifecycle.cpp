@@ -57,10 +57,10 @@ bool FillUserInfo(T_DjiUserInfo *userInfo) {
     }
 
     std::strncpy(userInfo->appName, appName, sizeof(userInfo->appName) - 1);
-    std::memcpy(userInfo->appId, appId, std::min(sizeof(userInfo->appId), std::strlen(appId)));
-    std::memcpy(userInfo->appKey, appKey, std::min(sizeof(userInfo->appKey), std::strlen(appKey)));
-    std::memcpy(userInfo->appLicense, appLicense, std::min(sizeof(userInfo->appLicense), std::strlen(appLicense)));
-    std::memcpy(userInfo->baudRate, baudRate, std::min(sizeof(userInfo->baudRate), std::strlen(baudRate)));
+    std::strncpy(userInfo->appId, appId, sizeof(userInfo->appId) - 1);
+    std::strncpy(userInfo->appKey, appKey, sizeof(userInfo->appKey) - 1);
+    std::strncpy(userInfo->appLicense, appLicense, sizeof(userInfo->appLicense) - 1);
+    std::strncpy(userInfo->baudRate, baudRate, sizeof(userInfo->baudRate) - 1);
     std::strncpy(userInfo->developerAccount, developerAccount, sizeof(userInfo->developerAccount) - 1);
     return true;
 }
