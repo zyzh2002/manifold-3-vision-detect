@@ -13,7 +13,8 @@ for f in "${HDR}/NvInfer.h" "${HDR}/NvOnnxParser.h" "${CUDA_HDR}/cuda_runtime.h"
     if [ ! -f "$f" ]; then echo "MISSING $f"; missing=1; fi
 done
 for f in "${LIB}/libnvinfer.so" "${LIB}/libnvonnxparser.so" "${LIB}/libnvinfer_plugin.so" \
-         "${CUDA_LIB}/libcudart.so" "${CUDA_LIB}/libcudla.so"; do
+         "${CUDA_LIB}/libcudart.so" "${CUDA_LIB}/libcudla.so" "${CUDA_LIB}/libcublas.so" \
+         "${CUDA_LIB}/libcublasLt.so" "${LIB}/libcudnn.so.8"; do
     if [ ! -e "$f" ]; then echo "MISSING $f"; missing=1; fi
 done
 if [ "$missing" -eq 1 ]; then echo "FAIL"; exit 1; fi

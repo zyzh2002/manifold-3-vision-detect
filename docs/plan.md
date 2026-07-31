@@ -126,13 +126,25 @@ Feed the captured NV12 frames into a TensorRT 8.5.2 model and produce structured
 
 ### Work
 
-- [ ] Add only the CUDA and TensorRT development packages required by the selected APIs.
-- [ ] Define the model input, output, precision, and engine compatibility contract.
-- [ ] Implement preprocessing without custom `.cu` files initially.
-- [ ] Load a target-compatible TensorRT engine.
-- [ ] Run single-frame inference before enabling continuous inference.
-- [ ] Measure end-to-end latency, inference time, throughput, memory use, and frame drops.
-- [ ] Add postprocessing and a stable detection result interface.
+- [x] Add only the CUDA and TensorRT development packages required by the selected APIs.
+- [x] Define the model input, output, precision, and engine compatibility contract (in design spec; real-model validation pending).
+- [x] Implement preprocessing without custom `.cu` files initially.
+- [x] Load a target-compatible TensorRT engine.
+- [x] Run single-frame inference before enabling continuous inference.
+- [x] Measure end-to-end latency, inference time, throughput, memory use, and frame drops.
+- [x] Add postprocessing and a stable detection result interface.
+
+### Target Validation Record (Phase 5)
+
+- Continuous capture->preprocess->infer->postprocess runs on Manifold 3 at ~21 fps with avg inference latency
+  ~1.4 ms and p95 ~1.7 ms (dummy YOLO11-seg engine, 1280x1280 input, FP16).
+- detections=0 is expected: the dummy engine emits random-weight outputs below the 0.25 confidence threshold.
+- RSS stable at ~630 MB over 5 min with slow ~0.5-1 MB/min creep attributed to driver/SDK lazy allocation; no
+  application leak path identified.
+- Host unit tests (inference preprocess/postprocess) pass 2/2; cross build clean with full TensorRT closure
+  (nvinfer, cudart, cublas, libcudnn.so.8, tegra rpath-link).
+- Real-model swap pending the trained YOLO11-seg model (separate PC-side training plan; spec Open Items:
+  species list, dataset size).
 
 ### Exit Criteria
 

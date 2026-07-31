@@ -78,7 +78,7 @@ Pipeline:
 NV12 1440x1080 frame (from src/capture/)
   -> preprocess: NV12->RGB, resize to 1280x1280, normalize
      (CPU first; switch to VPI/custom .cu only if latency budget is exceeded)
-  -> TensorRT inference (deserializeCudaEngine + enqueueV2, FP16)
+   -> TensorRT inference (deserializeCudaEngine + enqueueV3 with setTensorAddress, FP16)
   -> postprocess: mask prototype decoding + confidence threshold + NMS
   -> detections[]
 ```

@@ -279,7 +279,9 @@ Output of `dpkg -l | grep -E "libnvinfer-dev|libnvonnxparser|nvidia-cuda|cudart"
 |---|---|---|
 | `cuda-cudart-11-4` | 11.4.298-1 | arm64 |
 | `cuda-cudart-dev-11-4` | 11.4.298-1 | arm64 |
+| `libcudla-11-4` | 11.4.298-1 | arm64 |
 | `libnvinfer-dev` | 8.5.2-1+cuda11.4 | arm64 |
+| `libnvinfer-plugin-dev` | 8.5.2-1+cuda11.4 | arm64 |
 | `libnvonnxparsers-dev` | 8.5.2-1+cuda11.4 | arm64 |
 | `libnvonnxparsers8` | 8.5.2-1+cuda11.4 | arm64 |
 | `python3-libnvinfer-dev` | 8.5.2-1+cuda11.4 | arm64 |
@@ -345,7 +347,8 @@ bash scripts/check_inference_sysroot.sh
 ```
 
 The helper checks that `NvInfer.h`, `NvOnnxParser.h`, `cuda_runtime.h`, `cuda.h`, `crt/host_config.h`,
-`libnvinfer.so`, `libnvonnxparser.so`, `libnvinfer_plugin.so`, `libcudart.so`, and `libcudla.so` resolve
+`libnvinfer.so`, `libnvonnxparser.so`, `libnvinfer_plugin.so`, `libcudart.so`, `libcudla.so`,
+`libcublas.so`, `libcublasLt.so`, and `libcudnn.so.8` resolve
 under the sysroot (honors `MANIFOLD3_SYSROOT` when set).
 
 Note: this extension supersedes the deferred "CUDA Toolkit" and "TensorRT" rows of the Phase 2 table above for
