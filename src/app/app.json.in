@@ -1,0 +1,40 @@
+{
+    "user_app_id": "@MANIFOLD3_APP_ID@",
+    "firmware_version": "01.00.00.00",
+    "is_ai_rendering": "false",
+    "platform": "manifold3",
+    "name": {
+        "name_cn": "妙算三视觉检测",
+        "name_en": "manifold3-vision-detect",
+        "name_jp": "マニホールド3ビジョン検出",
+        "name_fr": "Detection visuelle Manifold 3"
+    },
+    "description": {
+        "description_cn": [
+            "基于妙算三的视觉检测应用",
+            "使用 TensorRT 运行目标检测模型"
+        ],
+        "description_en": [
+            "Vision detection application for Manifold 3",
+            "Runs target detection models with TensorRT"
+        ],
+        "description_jp": [
+            "マニホールド3向けビジョン検出アプリ",
+            "TensorRT で目標検出モデルを実行"
+        ],
+        "description_fr": [
+            "Application de detection visuelle pour Manifold 3",
+            "Execute des modeles de detection avec TensorRT"
+        ]
+    },
+    "maintainer": {
+        "maintainer_cn": "妙算三视觉检测开发组",
+        "maintainer_en": "Manifold 3 Vision Detect Team",
+        "maintainer_jp": "マニホールド3ビジョン検出チーム",
+        "maintainer_fr": "Equipe detection visuelle Manifold 3"
+    },
+    "ver_min": "00.00.00.00",
+    "ver_max": "99.99.99.99",
+    "bin": "manifold3_vision_detect",
+    "userconfig": ""
+}

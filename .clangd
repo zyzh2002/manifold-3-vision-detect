@@ -1,2 +1,13 @@
 CompileFlags:
   CompilationDatabase: build-cross
+If:
+  PathMatch: third_party/psdk/**
+CompileFlags:
+  Add:
+    - -Ithird_party/psdk/psdk_lib/include
+    - -Ithird_party/psdk/samples/sample_c/module_sample
+    - -Ithird_party/psdk/samples/sample_c/platform/linux/common
+    - -Ithird_party/psdk/samples/sample_c/platform/linux/common/osal
+    - -Ithird_party/psdk/samples/sample_c/platform/linux/manifold3/application
+    - -Ithird_party/psdk/samples/sample_c/platform/linux/manifold3/hal
+    - -D_GNU_SOURCE
