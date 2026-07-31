@@ -290,6 +290,31 @@ Output of `dpkg -l | grep -E "libnvinfer-dev|libnvonnxparser|nvidia-cuda|cudart"
 
 These match the JetPack 5.1.3 baseline (CUDA 11.4, TensorRT 8.5.2) recorded in "Selected Build Baseline".
 
+### Assembly Steps (from a connected device)
+
+The Manifold 3 firmware is the runtime authority, so the Phase 5 extension is copied from the device. The
+`scripts/extend_sysroot_from_device.sh` script performs the whole procedure: it checks device reachability and
+package versions, copies every header and library, restores the device symlink layout (plain `scp` dereferences
+remote symlinks into full copies, so the duplicated dev links are removed and re-linked), and finally runs
+`scripts/check_inference_sysroot.sh`. It is idempotent.
+
+```bash
+# Preconditions
+# 1. Manifold 3 connected via USB; network up (fixed address, see AGENTS.md).
+# 2. SSH key permissions: chmod 600 config/manifold3_id_rsa
+# 3. Device package versions match the table above (script warns on mismatch).
+
+scripts/extend_sysroot_from_device.sh              # 192.168.42.120, $MANIFOLD3_SYSROOT or ./sysroot
+scripts/extend_sysroot_from_device.sh 10.0.0.5      # other address
+scripts/extend_sysroot_from_device.sh --sysroot /opt/m3-sysroot   # explicit sysroot
+# Expected final line: PASS: inference sysroot extension present
+```
+
+The script is the primary path; the file table below and the symlink layout that follows document exactly what it
+copies and how it links, so a partial failure can be repaired by hand. If the device is unavailable, the same
+`.deb` packages (versions in the table above) can be extracted with `dpkg-deb -x` into the sysroot; the symlink
+restoration still applies.
+
 ### Copied files
 
 | Source (device) | Destination (sysroot) | Contents |
