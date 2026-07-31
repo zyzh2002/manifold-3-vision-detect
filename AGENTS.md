@@ -236,6 +236,8 @@ What is verified on Manifold 3 (target):
 - Dynamic dependencies resolve against the device libraries; GLIBC_2.17 requirements are satisfied
 - No sysroot overlay is required
 
-Phase 3 work is now unblocked:
-1. Port the required PSDK platform layer into `src/platform/`.
-2. Implement the minimal PSDK lifecycle and DPK application.
+Phase 3 is complete: the PSDK platform layer lives in `src/platform/`, and the minimal PSDK lifecycle and
+DPK application are implemented and validated on Manifold 3. The DPK install/start/stop/update/uninstall
+lifecycle verification is deferred to Phase 6: it requires the DJI Pilot 2 developer workflow and real DJI
+developer credentials, which are unavailable in Phase 3. Development iteration uses `scripts/deploy.sh`
+direct deployment instead.

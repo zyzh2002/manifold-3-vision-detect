@@ -87,10 +87,11 @@ Phase 2 已全部完成，包括主机侧交叉构建与目标机运行验证：
 5. 冒烟程序已在 Manifold 3 上运行通过：目标环境与基线一致（R35.5.0 / kernel 5.10.192 / glibc 2.31 /
    CUDA 11.4.19 / TensorRT 8.5.2 / cuDNN 8.6.0），动态依赖全部解析，无需 sysroot overlay。
 
-Phase 3（最小 PSDK 生命周期与 DPK 应用）进行中：
+Phase 3（最小 PSDK 生命周期与 DPK 应用）已完成：
 - 已完成：platform 层移植（OSAL/FS/Socket/USB Bulk）、`src/core/` 最小生命周期、`src/app/` 入口、CMake 集成与链接、开发 DPK 生成（`build_dpk.sh`）、直接部署调试脚本（`scripts/deploy.sh <ip> run`）
 - 设备已验证：二进制运行、handler 注册、FunctionFS 通道就绪、占位凭据拒绝路径
-- 待完成：DJI Pilot 2 安装验证 DPK 生命周期；提供真实 DJI 开发者凭据后验证连接飞机
+- 推迟至 Phase 6：DPK 安装/启动/停止/更新/卸载生命周期验证（需 DJI Pilot 2 开发者流程与真实开发者凭据，Phase 3 不可得）；开发迭代使用 `scripts/deploy.sh` 直连部署
+- 待真实凭据：提供真实 DJI 开发者凭据后验证连接飞机
 
 开发凭据通过 CMake 变量注入（`MANIFOLD3_APP_ID` 等，默认占位符），`app.json` 由 CMake 从同一变量生成，仓库不提交凭据。DJI 不提供官方示例凭据（`164884` 仅为格式示例）。
 

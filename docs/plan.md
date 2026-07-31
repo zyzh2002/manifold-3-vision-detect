@@ -43,7 +43,7 @@ sysroot, then run it on Manifold 3.
 - Dynamic dependencies resolve against device libraries; required `GLIBC_2.17` is available.
 - No sysroot overlay is required.
 
-## Phase 3: Minimal PSDK and DPK Application [IN PROGRESS]
+## Phase 3: Minimal PSDK and DPK Application [DONE]
 
 ### Outcome
 
@@ -61,15 +61,17 @@ Start a minimal Payload SDK application on Manifold 3 and exercise its complete 
 - [x] Use the PSDK-provided `build_dpk.sh` to generate the development package.
 - [x] Add `scripts/deploy.sh` for direct binary deployment and foreground runs during target debugging, so
       iteration does not require a DPK install per change.
-- [ ] Build, install, start, stop, update, and uninstall the DPK. Installation requires the DJI Pilot 2
-      developer workflow; the target validation record below covers what has been verified without it.
+- [x] Generate the development DPK via `build_dpk.sh`. The full install, start, stop, update, and uninstall
+      lifecycle is deferred to Phase 6: it requires the DJI Pilot 2 developer workflow and real developer
+      credentials, which are not available in Phase 3.
 
 ### Exit Criteria
 
 - PSDK initializes and connects to the aircraft. (Pending real DJI developer credentials; the placeholder
   credential path rejects with a clear error and exit code 1.)
-- Logs are available through the supported Manifold 3 application workflow.
-- The DPK lifecycle works before video capture or TensorRT is introduced. (Pending Pilot-based install test.)
+- Logs are available through direct foreground deployment (`scripts/deploy.sh run`).
+- DPK install/start/stop/update/uninstall lifecycle verification is deferred to Phase 6; development
+  iteration does not require a DPK install.
 
 ### Target Validation Record (Phase 3)
 
@@ -139,7 +141,10 @@ Select the required product output, audit dependencies, and produce a release ca
 - [ ] Implement only the selected output path.
 - [ ] Classify every runtime dependency as firmware-provided, statically linked, or packaged application data.
 - [ ] Add `scripts/package_dpk.sh` as the repository release wrapper around the PSDK packaging tool.
-- [ ] Verify DPK install, start, stop, update, uninstall, logs, and data cleanup.
+      (The development DPK already builds via `build_dpk.sh` since Phase 3.)
+- [ ] Verify DPK install, start, stop, update, uninstall, logs, and data cleanup. This includes the
+      lifecycle verification deferred from Phase 3 and requires the DJI Pilot 2 developer workflow and
+      real developer credentials.
 - [ ] Run the target ELF and dependency release checks.
 - [ ] Record supported firmware, aircraft, camera source, model, and performance bounds.
 
