@@ -264,6 +264,65 @@ By default, the toolchain rejects a sysroot that lacks a matching r35.5.0 `/etc/
 `-DMANIFOLD3_ALLOW_UNVERIFIED_SYSROOT=ON` only when target measurements establish and document why a different or
 device-derived sysroot is required.
 
+## Phase 5 Sysroot Extension
+
+The Phase 5 inference build requires CUDA Toolkit and TensorRT development files. They are copied from the
+Manifold 3 device firmware (the runtime authority) into the sysroot at the same relative paths, so `-I`/`-L`
+flags and `#include <cuda_runtime.h>` / `#include <NvInfer.h>` resolve under the sysroot prefix.
+
+### Device packages (recorded 2026-07-31)
+
+Output of `dpkg -l | grep -E "libnvinfer-dev|libnvonnxparser|nvidia-cuda|cudart"` on the device
+(`dji@192.168.42.120`):
+
+| Package | Version | Architecture |
+|---|---|---|
+| `cuda-cudart-11-4` | 11.4.298-1 | arm64 |
+| `cuda-cudart-dev-11-4` | 11.4.298-1 | arm64 |
+| `libnvinfer-dev` | 8.5.2-1+cuda11.4 | arm64 |
+| `libnvonnxparsers-dev` | 8.5.2-1+cuda11.4 | arm64 |
+| `libnvonnxparsers8` | 8.5.2-1+cuda11.4 | arm64 |
+| `python3-libnvinfer-dev` | 8.5.2-1+cuda11.4 | arm64 |
+
+These match the JetPack 5.1.3 baseline (CUDA 11.4, TensorRT 8.5.2) recorded in "Selected Build Baseline".
+
+### Copied files
+
+| Source (device) | Destination (sysroot) | Contents |
+|---|---|---|
+| `/usr/include/aarch64-linux-gnu/NvInfer*.h` | `usr/include/aarch64-linux-gnu/` | TensorRT headers |
+| `/usr/include/aarch64-linux-gnu/NvOnnx*.h` | `usr/include/aarch64-linux-gnu/` | ONNX parser headers |
+| `/usr/local/cuda/include/` (whole tree) | `usr/local/cuda/include/` | CUDA toolkit headers (`cuda_runtime.h`, `cuda.h`, `crt/host_config.h`, ...) |
+| `/usr/lib/aarch64-linux-gnu/libnvinfer.so*` | `usr/lib/aarch64-linux-gnu/` | TensorRT dev symlinks + `libnvinfer.so.8.5.2` |
+| `/usr/lib/aarch64-linux-gnu/libnvonnxparser.so*` | `usr/lib/aarch64-linux-gnu/` | ONNX parser dev symlinks + `libnvonnxparser.so.8.5.2` |
+| `/usr/local/cuda/lib64/libcudart.so*` | `usr/local/cuda/lib64/` | CUDA runtime dev symlinks + `libcudart.so.11.4.298` |
+
+The library symlink chains are restored to exactly match the device layout (plain `scp` dereferences symlinks,
+so the duplicated full copies were removed and re-linked):
+
+```text
+libnvinfer.so -> libnvinfer.so.8.5.2
+libnvinfer.so.8 -> libnvinfer.so.8.5.2
+libnvonnxparser.so -> libnvonnxparser.so.8
+libnvonnxparser.so.8 -> libnvonnxparser.so.8.5.2
+libcudart.so -> libcudart.so.11.0
+libcudart.so.11.0 -> libcudart.so.11.4.298
+```
+
+### Verification
+
+```bash
+bash scripts/check_inference_sysroot.sh
+# Expected: PASS: inference sysroot extension present
+```
+
+The helper checks that `NvInfer.h`, `NvOnnxParser.h`, `cuda_runtime.h`, `cuda.h`, `crt/host_config.h`,
+`libnvinfer.so`, `libnvonnxparser.so`, and `libcudart.so` resolve under the sysroot (honors
+`MANIFOLD3_SYSROOT` when set).
+
+Note: this extension supersedes the deferred "CUDA Toolkit" and "TensorRT" rows of the Phase 2 table above for
+development files; cuDNN development files remain deferred until a build requires them.
+
 ## Development Credentials
 
 The PSDK connects to the aircraft only with real DJI developer credentials
