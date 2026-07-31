@@ -89,12 +89,24 @@ Receive one Matrice 4E visible-light stream and expose bounded, owned frames to 
 
 ### Work
 
-- [ ] Initialize PSDK Liveview after core initialization.
-- [ ] Validate `DjiLiveview_StartImageStream()` with NV12 output on Manifold 3.
+- [x] Initialize PSDK Liveview after core initialization.
+- [x] Validate `DjiLiveview_StartImageStream()` with NV12 output on Manifold 3.
 - [ ] Define frame ownership, metadata, bounded buffering, drop behavior, and shutdown behavior from observed callback
   timing.
 - [ ] Record frame dimensions, format, frame rate, drop count, latency, CPU use, and memory growth.
 - [ ] Validate H.264 capture separately for recording and fallback capability.
+
+### Target Validation Record (Phase 4)
+
+- `DjiLiveview_StartImageStream()` on `DJI_LIVEVIEW_CAMERA_POSITION_NO_1` / `DJI_LIVEVIEW_CAMERA_SOURCE_M4E_VIS`
+  with `PIXFMT_NV12` delivers a stable 30 fps stream at 1440x1080 (2,332,800 bytes/frame).
+- 0 dropped frames over 1251 observed frames; `frameId` stays contiguous.
+- Callback interval: min 1.8 ms (burst), avg 33.3 ms, max 42.6 ms.
+- Process RSS settles at ~73 MB with no unbounded growth over the observation window.
+- Preconditions on target: stop `Smart3DExplore` (`dji_app_ctl stop Smart3DExplore`) before running, otherwise the
+  local channel bind fails with "Address already in use".
+- Note: the device identifies the aircraft as "Matrice 4T" from its base info query; the M4E visible-light source
+  enum still selects the visible stream as intended.
 
 ### Exit Criteria
 
