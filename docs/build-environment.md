@@ -283,6 +283,8 @@ Output of `dpkg -l | grep -E "libnvinfer-dev|libnvonnxparser|nvidia-cuda|cudart"
 | `libnvonnxparsers-dev` | 8.5.2-1+cuda11.4 | arm64 |
 | `libnvonnxparsers8` | 8.5.2-1+cuda11.4 | arm64 |
 | `python3-libnvinfer-dev` | 8.5.2-1+cuda11.4 | arm64 |
+| `libcublas-11-4` | 11.6.6.84-1 | arm64 |
+| `libcudnn8` | 8.6.0.166-1+cuda11.4 | arm64 |
 
 These match the JetPack 5.1.3 baseline (CUDA 11.4, TensorRT 8.5.2) recorded in "Selected Build Baseline".
 
@@ -298,6 +300,13 @@ These match the JetPack 5.1.3 baseline (CUDA 11.4, TensorRT 8.5.2) recorded in "
 | `/usr/lib/aarch64-linux-gnu/libnvinfer_plugin.so*` | `usr/lib/aarch64-linux-gnu/` | TensorRT plugin dev symlinks + `libnvinfer_plugin.so.8.5.2` (from `libnvinfer-plugin-dev`) |
 | `/usr/local/cuda/lib64/libcudart.so*` | `usr/local/cuda/lib64/` | CUDA runtime dev symlinks + `libcudart.so.11.4.298` |
 | `/usr/local/cuda/lib64/libcudla.so*` | `usr/local/cuda/lib64/` | CUDA DLA runtime dev symlinks + `libcudla.so.1.0.0` (from `libcudla-11-4`) |
+| `/usr/local/cuda/lib64/libcublas.so*` | `usr/local/cuda/lib64/` | cuBLAS dev symlinks + `libcublas.so.11.6.6.84` (from `libcublas-11-4`) |
+| `/usr/local/cuda/lib64/libcublasLt.so*` | `usr/local/cuda/lib64/` | cuBLAS-Lt dev symlinks + `libcublasLt.so.11.6.6.84` (from `libcublas-11-4`) |
+| `/usr/lib/aarch64-linux-gnu/libcudnn.so.8*` | `usr/lib/aarch64-linux-gnu/` | cuDNN runtime `libcudnn.so.8` -> `libcudnn.so.8.6.0` (from `libcudnn8`; file name carries the 8.6.0 sub-version) |
+
+The unversioned device `libcudnn.so` is an alternatives-managed link (`/etc/alternatives/libcudnn_so ->
+/usr/lib/aarch64-linux-gnu/libcudnn.so.8`), so it is intentionally NOT copied into the sysroot. Link against
+the versioned name instead: `-l:libcudnn.so.8`.
 
 `libnvdla_compiler.so` and `libnvdla_runtime.so` were already present in the Phase 2 sysroot at
 `usr/lib/aarch64-linux-gnu/tegra/`; no copy was needed (verified identical size on device and sysroot).
@@ -316,7 +325,17 @@ libcudart.so -> libcudart.so.11.0
 libcudart.so.11.0 -> libcudart.so.11.4.298
 libcudla.so -> libcudla.so.1
 libcudla.so.1 -> libcudla.so.1.0.0
+libcublas.so -> libcublas.so.11
+libcublas.so.11 -> libcublas.so.11.6.6.84
+libcublasLt.so -> libcublasLt.so.11
+libcublasLt.so.11 -> libcublasLt.so.11.6.6.84
+libcudnn.so.8 -> libcudnn.so.8.6.0
 ```
+
+A minimal inference link test (`NvInfer.h` runtime + `cuda_runtime.h` + `cublas_v2.h`, linked with
+`-lnvinfer -lnvonnxparser -lnvinfer_plugin -lcudart -lcudla -lcublas -lcublasLt -l:libcudnn.so.8` and
+`-L <sysroot>/usr/lib/aarch64-linux-gnu/tegra` for the DLA compiler) closes the full transitive dependency
+chain with no undefined references and no `--allow-shlib-undefined`.
 
 ### Verification
 
@@ -330,7 +349,8 @@ The helper checks that `NvInfer.h`, `NvOnnxParser.h`, `cuda_runtime.h`, `cuda.h`
 under the sysroot (honors `MANIFOLD3_SYSROOT` when set).
 
 Note: this extension supersedes the deferred "CUDA Toolkit" and "TensorRT" rows of the Phase 2 table above for
-development files; cuDNN development files remain deferred until a build requires them.
+development files. The cuDNN runtime library is present (link closure); cuDNN headers remain deferred until the
+inference code calls cuDNN APIs directly.
 
 ## Development Credentials
 
