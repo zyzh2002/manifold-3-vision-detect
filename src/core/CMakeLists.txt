@@ -1,5 +1,6 @@
 add_library(core STATIC
     psdk_lifecycle.cpp
+    psdk_user_info.cpp
 )
 
 target_include_directories(core PUBLIC

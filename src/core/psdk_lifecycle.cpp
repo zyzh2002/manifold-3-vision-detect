@@ -7,9 +7,9 @@
 
 #include <algorithm>
 #include <cstdio>
-#include <cstring>
 
 #include "core/manifold3_app_info.h"
+#include "core/psdk_user_info.h"
 #include "platform/hal_usb_bulk.h"
 #include "platform/osal.h"
 #include "platform/osal_fs.h"
@@ -27,42 +27,6 @@ T_DjiReturnCode PrintConsole(const uint8_t *data, uint16_t dataLen) {
     (void)dataLen;
     std::fwrite(data, 1, dataLen, stdout);
     return DJI_ERROR_SYSTEM_MODULE_CODE_SUCCESS;
-}
-
-bool FillUserInfo(T_DjiUserInfo *userInfo) {
-    std::memset(userInfo, 0, sizeof(*userInfo));
-
-    const char *appName = MANIFOLD3_APP_NAME;
-    const char *appId = MANIFOLD3_APP_ID;
-    const char *appKey = MANIFOLD3_APP_KEY;
-    const char *appLicense = MANIFOLD3_APP_LICENSE;
-    const char *developerAccount = MANIFOLD3_DEVELOPER_ACCOUNT;
-    const char *baudRate = MANIFOLD3_BAUD_RATE;
-
-    if (std::strlen(appName) >= sizeof(userInfo->appName) || std::strlen(appId) > sizeof(userInfo->appId) ||
-        std::strlen(appKey) > sizeof(userInfo->appKey) || std::strlen(appLicense) > sizeof(userInfo->appLicense) ||
-        std::strlen(developerAccount) >= sizeof(userInfo->developerAccount) ||
-        std::strlen(baudRate) > sizeof(userInfo->baudRate)) {
-        std::fprintf(stderr, "PSDK user info string exceeds field limits\n");
-        return false;
-    }
-
-    if (std::strcmp(appName, "your_app_name") == 0 || std::strcmp(appId, "your_app_id") == 0 ||
-        std::strcmp(appKey, "your_app_key") == 0 || std::strcmp(appLicense, "your_app_license") == 0 ||
-        std::strcmp(developerAccount, "your_developer_account") == 0) {
-        std::fprintf(stderr, "PSDK credentials not configured; pass MANIFOLD3_APP_ID / "
-                             "MANIFOLD3_APP_KEY / MANIFOLD3_APP_NAME / "
-                             "MANIFOLD3_APP_LICENSE / MANIFOLD3_DEVELOPER_ACCOUNT to CMake\n");
-        return false;
-    }
-
-    std::strncpy(userInfo->appName, appName, sizeof(userInfo->appName) - 1);
-    std::strncpy(userInfo->appId, appId, sizeof(userInfo->appId) - 1);
-    std::strncpy(userInfo->appKey, appKey, sizeof(userInfo->appKey) - 1);
-    std::strncpy(userInfo->appLicense, appLicense, sizeof(userInfo->appLicense) - 1);
-    std::strncpy(userInfo->baudRate, baudRate, sizeof(userInfo->baudRate) - 1);
-    std::strncpy(userInfo->developerAccount, developerAccount, sizeof(userInfo->developerAccount) - 1);
-    return true;
 }
 
 } // namespace
@@ -162,7 +126,10 @@ bool PsdkLifecycle::Initialize() {
     }
 
     T_DjiUserInfo userInfo;
-    if (!FillUserInfo(&userInfo)) {
+    PsdkCredentialStrings credentials = {MANIFOLD3_APP_NAME,          MANIFOLD3_APP_ID,
+                                         MANIFOLD3_APP_KEY,           MANIFOLD3_APP_LICENSE,
+                                         MANIFOLD3_DEVELOPER_ACCOUNT, MANIFOLD3_BAUD_RATE};
+    if (!FillPsdkUserInfo(credentials, &userInfo)) {
         return false;
     }
 
