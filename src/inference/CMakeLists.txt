@@ -1,5 +1,6 @@
 # Pure C++ preprocessing/postprocessing: buildable on host for unit tests.
 add_library(inference STATIC
+    pipeline_metrics.cpp
     preprocess.cpp
     postprocess.cpp
 )
