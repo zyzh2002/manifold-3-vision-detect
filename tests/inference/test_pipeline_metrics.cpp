@@ -61,6 +61,18 @@ int main() {
         assert(s.max_us() == 20);
     }
 
+    // Out-of-range percentile: p <= 0 (and NaN) is rejected by the guard and
+    // returns 0 instead of underflowing the nearest-rank index.
+    {
+        LatencySamples s;
+        s.Add(100);
+        s.Add(200);
+        assert(s.percentile_us(0.0) == 0);
+        assert(s.percentile_us(-0.5) == 0);
+        const double nan = 0.0 / 0.0;
+        assert(s.percentile_us(nan) == 0);
+    }
+
     // Clear empties the sample set.
     {
         LatencySamples s;

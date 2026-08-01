@@ -2,6 +2,7 @@
 #include <csignal>
 #include <cstdio>
 #include <string>
+#include <vector>
 
 #include "capture/liveview_capture.h"
 #include "core/psdk_lifecycle.h"
@@ -131,11 +132,11 @@ int main(int argc, char **argv) {
             const double seconds = std::chrono::duration<double>(now - lastReport).count();
             const double fps = seconds > 0.0 ? static_cast<double>(window.frames) / seconds : 0.0;
             const manifold3::LiveviewCapture::Stats stats = capture.GetStats();
-            std::printf("pipeline synthetic=true fps=%.1f frames=%llu detections=%llu\n"
-                        "pre_avg_us=%lld pre_p95_us=%lld\n"
-                        "h2d_avg_us=%lld exec_avg_us=%lld d2h_avg_us=%lld eng_avg_us=%lld eng_p95_us=%lld\n"
-                        "post_avg_us=%lld post_p95_us=%lld\n"
-                        "e2e_avg_us=%lld e2e_p95_us=%lld e2e_max_us=%lld\n"
+            std::printf("pipeline synthetic=true fps=%.1f frames=%llu detections=%llu "
+                        "pre_avg_us=%lld pre_p95_us=%lld "
+                        "h2d_avg_us=%lld exec_avg_us=%lld d2h_avg_us=%lld eng_avg_us=%lld eng_p95_us=%lld "
+                        "post_avg_us=%lld post_p95_us=%lld "
+                        "e2e_avg_us=%lld e2e_p95_us=%lld e2e_max_us=%lld "
                         "source_drop=%llu handoff_drop=%llu invalid=%llu rss_kb=%ld\n",
                         fps, static_cast<unsigned long long>(window.frames),
                         static_cast<unsigned long long>(window.detections),

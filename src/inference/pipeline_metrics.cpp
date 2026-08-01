@@ -25,6 +25,13 @@ int64_t LatencySamples::percentile_us(double percentile) const {
     if (values_us_.empty()) {
         return 0;
     }
+    // Guard the documented domain p in (0.0, 1.0]: p <= 0 makes rank 0 and
+    // index = min(0, N) - 1, which underflows size_t. Return 0 as an
+    // out-of-range sentinel instead of accepting p. NaN is also rejected
+    // because NaN <= 0.0 is false.
+    if (!(percentile > 0.0)) {
+        return 0;
+    }
     std::vector<int64_t> sorted = values_us_;
     std::sort(sorted.begin(), sorted.end());
     // Nearest-rank: rank = ceil(p * N) with p in (0.0, 1.0]; rank is at
