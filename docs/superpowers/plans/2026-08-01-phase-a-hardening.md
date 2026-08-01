@@ -23,11 +23,11 @@
 
 ---
 
-### Task A0: Baseline
+### Task 0: Baseline
 
 Recorded: host tests 2/2 PASS; cross build + AArch64 ELF 2/2 PASS; credential scan clean; working tree clean. No commit.
 
-### Task A1: PSDK credential boundary fix
+### Task 1: PSDK credential boundary fix
 
 - Create `src/core/psdk_user_info.h/.cpp` with `struct PsdkCredentialStrings` and
   `bool FillPsdkUserInfo(const PsdkCredentialStrings&, T_DjiUserInfo*)`.
@@ -39,7 +39,7 @@ Recorded: host tests 2/2 PASS; cross build + AArch64 ELF 2/2 PASS; credential sc
 - TDD: RED build fails missing header; GREEN ctest PASS.
 - Commit: `fix: preserve full-length fixed PSDK credential fields`
 
-### Task A2: sysroot script exact package baseline
+### Task 2: sysroot script exact package baseline
 
 - `scripts/extend_sysroot_from_device.sh`: replace prefix `dpkg-query` with exact per-package checks:
   cuda-cudart-11-4, cuda-cudart-dev-11-4, libcudla-11-4, libcudla-dev-11-4, libcublas-11-4,
@@ -51,7 +51,7 @@ Recorded: host tests 2/2 PASS; cross build + AArch64 ELF 2/2 PASS; credential sc
 - Host tests with fake ssh/scp (`tests/scripts/fixtures/`): happy path (all versions correct, scp after checks), missing package exits 1 with no scp, mismatch exits 1 with no scp, argument errors exit 2.
 - Commit: `fix: enforce the documented phase 5 package baseline`
 
-### Task A3: staged sysroot install
+### Task 3: staged sysroot install
 
 - Copy into `mktemp -d` staging on the same filesystem first; trap cleanup EXIT/INT/TERM.
 - Managed scope only: NvInfer*.h, NvOnnx*.h, `usr/local/cuda/include/` tree, and the .so families
@@ -63,7 +63,7 @@ Recorded: host tests 2/2 PASS; cross build + AArch64 ELF 2/2 PASS; credential sc
 - Device verification on a disposable copy (e.g. `cp -a --reflink=auto sysroot /tmp/opencode/...`), never the working sysroot.
 - Commit: `fix: install the device-derived sysroot extension atomically`
 
-### Task A4: safe NV12 frame slot
+### Task 4: safe NV12 frame slot
 
 - Create `src/capture/latest_frame_slot.h/.cpp`: `OwnedNv12Frame{data,width,height,frame_id}`,
   `enum class FramePushResult{kStored,kReplaced,kInvalid}`,
@@ -76,7 +76,7 @@ Recorded: host tests 2/2 PASS; cross build + AArch64 ELF 2/2 PASS; credential sc
 - Tests `tests/capture/test_latest_frame_slot.cpp`: valid push/take, null/odd/short/long fails, replace semantics + counter, timeout, wake on push, wake on stop, 1000 overwrites keep one frame.
 - Commit: `fix: validate NV12 callbacks and account for handoff drops`
 
-### Task A5: enforced synthetic engine contract
+### Task 5: enforced synthetic engine contract
 
 - Create `src/inference/synthetic_engine_contract.h`: tensor names (images/output0/output1/output2),
   shapes (input 1x3x1280x1280; output0 float[1,43,25600]; output1 float[1,32,25600]; output2 float[1,32,160,160]).
@@ -88,7 +88,7 @@ Recorded: host tests 2/2 PASS; cross build + AArch64 ELF 2/2 PASS; credential sc
 - Tests: size mismatches fail; wrong dtype/shape Load fails; name-order independence; correct path passes.
 - Commit: `fix: enforce the synthetic TensorRT engine contract`
 
-### Task A6: per-window metrics
+### Task 6: per-window metrics
 
 - `src/inference/pipeline_metrics.h/.cpp`: `LatencySamples{average_us, percentile_us, max_us, clear}` (nearest-rank percentile `ceil(p*N)-1`, clamped); `PipelineWindowStats{frames, detections, preprocess, h2d, execute, d2h, engine_total, postprocess, end_to_end}`.
 - `main.cpp`: one loop iteration = WaitTake -> e2e start -> preprocess -> Infer (timing) -> Decode -> e2e end; rollover at 1s prints all window values and clears all counters.
@@ -96,14 +96,14 @@ Recorded: host tests 2/2 PASS; cross build + AArch64 ELF 2/2 PASS; credential sc
 - Tests `tests/inference/test_pipeline_metrics.cpp`: empty, 1/2/20 samples p95, clear, rollover, max/avg isolation.
 - Commit: `fix: report honest per-window inference pipeline metrics`
 
-### Task A7: narrow documentation claims
+### Task 7: narrow documentation claims
 
 - `docs/plan.md`: Phase 5 split into 5A Synthetic Device Pipeline [DONE] and 5B Real Model [PENDING]; validation record states 21fps/1.4ms are synthetic-only; dets=0 does not validate detection correctness.
 - Spec/plan docs: replace "real YOLO11-seg output shapes"/"exact postprocessing shapes"/"swap the engine" with "synthetic three-output test contract; real-model contract pending"; fix `160*160=25600` comment; remove trailing whitespace.
 - `docs/build-environment.md`: hard-fail on version mismatch; staging install; checker symlink/SONAME checks; final `DONE` line; idempotence scoped to managed files.
 - Commit: `docs: align phase 5 claims with the synthetic inference milestone`
 
-### Task A8: full verification
+### Task 8: full verification
 
 - host: build + ctest all (psdk_user_info, latest_frame_slot, inference_preprocess, inference_postprocess, synthetic_engine_contract, pipeline_metrics, sysroot_extend_script, sysroot_checker).
 - cross: build clean, no new warnings (deprecated destroy handled in A5), ELF 2/2, app + smoke built.
@@ -111,12 +111,12 @@ Recorded: host tests 2/2 PASS; cross build + AArch64 ELF 2/2 PASS; credential sc
 - ONNX regen: `uv run --with onnx python3 scripts/generate_dummy_onnx.py --out build/synthetic-review.onnx`; if PyPI unreachable, use uv cache; else record external blocker (do not claim regeneration passed).
 - Checker: `--sysroot` explicit passes; empty dir fails non-zero.
 
-### Task A9: target regression
+### Task 9: target regression
 
 - Stop Smart3DExplore; run synthetic smoke (`scripts/run_inference_smoke.sh`); deploy app with dummy engine, run >=10 min; record fps, drops, invalid, stage latencies, e2e, RSS start/end; SIGTERM clean shutdown; restore Smart3DExplore (record result).
 - Commit: `docs: record hardened dummy inference pipeline validation`
 
-### Task A10: final review and branch close
+### Task 10: final review and branch close
 
 - Whole-branch review base..HEAD (Critical/Important = 0); credential scan; host/cross/target evidence; then offer merge decision.
 
