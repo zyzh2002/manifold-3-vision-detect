@@ -32,9 +32,10 @@ endif()
 
 # Static ELF verification: registered as CTest tests so they run via `ctest`.
 # LANG tells verify_elf.cmake which expected dynamic-dependency set to enforce
-# (C: libc only; CXX: libstdc++, libgcc_s, libc), which also catches an
-# accidental static linkage of libstdc++/libgcc (the DT_NEEDED entry would
-# vanish). LANG is a scalar so no ;-list argument marshaling is needed.
+# (C: libc only; CXX: libstdc++, libm, libgcc_s, libc — libm comes from the
+# device-derived sysroot libstdc++'s own DT_NEEDED, see verify_elf.cmake), which
+# also catches an accidental static linkage of libstdc++/libgcc (the DT_NEEDED
+# entry would vanish). LANG is a scalar so no ;-list argument marshaling is needed.
 add_test(NAME toolchain_smoke_c_elf
     COMMAND ${CMAKE_COMMAND}
         -DBINARY=$<TARGET_FILE:toolchain_smoke_c>

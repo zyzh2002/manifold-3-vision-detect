@@ -15,10 +15,17 @@ endforeach()
 # libgcc_s. Asserting the exact set catches an accidental static linkage of
 # libstdc++/libgcc, which would drop the DT_NEEDED entry without any other
 # signal. LANG is a scalar so there is no CMake ;-list argument to marshal.
+#
+# libm.so.6 is expected in the CXX set because the Phase 5 sysroot now ships the
+# device-derived libstdc++.so.6, whose own DT_NEEDED includes libm.so.6; the
+# linker propagates that inherited dependency into the binary. libm.so.6 is a
+# baseline-satisfied glibc library, so this does not weaken the exact-set
+# semantics: the static-libstdc++/libgcc regression is still caught because the
+# libstdc++/libgcc_s entries would disappear.
 if(LANG STREQUAL "C")
     set(EXPECTED_DEPS "libc.so.6")
 elseif(LANG STREQUAL "CXX")
-    set(EXPECTED_DEPS "libstdc++.so.6;libgcc_s.so.1;libc.so.6")
+    set(EXPECTED_DEPS "libstdc++.so.6;libm.so.6;libgcc_s.so.1;libc.so.6")
 else()
     message(FATAL_ERROR "LANG must be \"C\" or \"CXX\", got: \"${LANG}\"")
 endif()
