@@ -3,3 +3,9 @@
 add_test(NAME sysroot_extend_script
     COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/test_extend_sysroot_from_device.sh
 )
+
+# Host tests for scripts/check_inference_sysroot.sh using the fake sysroot
+# fixture builder; no device access needed.
+add_test(NAME sysroot_checker
+    COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/test_check_inference_sysroot.sh
+)

@@ -2,16 +2,17 @@
 # Host tests for scripts/extend_sysroot_from_device.sh.
 #
 # The script under test is driven with fake ssh/scp executables (see
-# tests/scripts/fixtures/) that answer dpkg-query from a fixture file, so no
-# device is needed. `--no-verify` skips the final check_inference_sysroot.sh
-# run, which requires a fully populated sysroot (the checker itself is
-# covered by its own tests in Task 3).
+# tests/scripts/fixtures/) that answer dpkg-query from a fixture file and
+# copy from a fake device tree (fixtures/make_fake_sysroot.sh), so no device
+# is needed. `--no-verify` skips the check_inference_sysroot.sh runs (the
+# checker itself is covered by test_check_inference_sysroot.sh).
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 SCRIPT="${REPO_ROOT}/scripts/extend_sysroot_from_device.sh"
 FIXTURES="$(cd "$(dirname "${BASH_SOURCE[0]}")/fixtures" && pwd)"
 EXPECTED_PKGS_FILE="${FIXTURES}/expected_packages.txt"
+MAKE_FAKE="${FIXTURES}/make_fake_sysroot.sh"
 
 CASE_NAME=""
 LAST_RC=0
@@ -24,7 +25,12 @@ fail() {
     exit 1
 }
 
-# run_script [--missing "pkg..."] [--fixture FILE] [script args...]
+# Build the fake device tree once: the same tree serves as the remote side
+# of every fake scp call.
+DEVICE_TREE="$(mktemp -d)"
+bash "${MAKE_FAKE}" "${DEVICE_TREE}"
+
+# run_script [--missing "pkg..."] [--fixture FILE] [--sleep SECS] [script args...]
 #
 # Runs the script under test with the fake ssh/scp in PATH. Both fake
 # executables log to the same file (FAKE_SSH_LOG = FAKE_SCP_LOG), so the
@@ -33,6 +39,7 @@ fail() {
 run_script() {
     local missing=""
     local fixture="${EXPECTED_PKGS_FILE}"
+    local sleep_secs=""
     while [ $# -gt 0 ]; do
         case "$1" in
             --missing)
@@ -41,6 +48,10 @@ run_script() {
                 ;;
             --fixture)
                 fixture="$2"
+                shift 2
+                ;;
+            --sleep)
+                sleep_secs="$2"
                 shift 2
                 ;;
             *)
@@ -59,6 +70,8 @@ run_script() {
         FAKE_SCP_LOG="${LAST_CALLS}" \
         FAKE_PKG_QUERY_FILE="${fixture}" \
         FAKE_MISSING_PKGS="${missing}" \
+        FAKE_DEVICE_ROOT="${DEVICE_TREE}" \
+        FAKE_SCP_SLEEP="${sleep_secs}" \
         env -u MANIFOLD3_SYSROOT "${SCRIPT}" "$@" >"${LAST_OUT}" 2>"${LAST_ERR}"
     LAST_RC=$?
     set -e
@@ -72,16 +85,33 @@ expect_stderr_contains() {
     grep -q "$1" "${LAST_ERR}" || fail "stderr missing '$1': $(tr '\n' ' ' <"${LAST_ERR}")"
 }
 
+expect_out_contains() {
+    grep -q "$1" "${LAST_OUT}" || fail "stdout missing '$1': $(tr '\n' ' ' <"${LAST_OUT}")"
+}
+
 expect_scp_calls() {
     local count
     count="$(grep -c '^SCP:' "${LAST_CALLS}" 2>/dev/null || true)"
     [ "${count}" -eq "$1" ] || fail "expected $1 scp calls, got ${count}"
 }
 
-# --- Case 1: happy path ---
+# Snapshot of every managed file (name, type, size, link target) under the
+# sysroot, sorted for comparison.
+snapshot_managed() {
+    local sysroot="$1"
+    (cd "${sysroot}" && find \
+        usr/include/aarch64-linux-gnu usr/local/cuda usr/lib/aarch64-linux-gnu \
+        \( -name 'NvInfer*.h' -o -name 'NvOnnx*.h' -o -name 'libnvinfer*' \
+        -o -name 'libnvonnxparser*' -o -name 'libnvinfer_plugin*' \
+        -o -name 'libcudnn.so*' -o -name 'libcudart*' -o -name 'libcudla*' \
+        -o -name 'libcublas*' -o -name 'libcublasLt*' \) \
+        -printf '%P %y %s %l\n' | sort)
+}
+
+# --- Case 1: happy path with verification ---
 test_happy_path() {
     CASE_NAME="happy path"
-    run_script --sysroot "$(mktemp -d)/sysroot" --no-verify
+    run_script --sysroot "$(mktemp -d)/sysroot"
     expect_rc 0
     local dpkg_count scp_count first_scp last_dpkg
     dpkg_count="$(grep -c 'dpkg-query' "${LAST_CALLS}" || true)"
@@ -93,8 +123,9 @@ test_happy_path() {
     first_scp="$(grep -n '^SCP:' "${LAST_CALLS}" | head -1 | cut -d: -f1)"
     last_dpkg="$(grep -n 'dpkg-query' "${LAST_CALLS}" | tail -1 | cut -d: -f1)"
     [ "${first_scp}" -gt "${last_dpkg}" ] || fail "scp ran before all package checks"
-    grep -q '^DONE:' "${LAST_OUT}" || fail "missing final DONE line"
-    echo "PASS: happy path (14 exact version checks, then 4 scp calls)"
+    expect_out_contains "PASS: inference sysroot extension present"
+    expect_out_contains '^DONE: sysroot extension applied to '
+    echo "PASS: happy path (14 exact version checks, 4 scp calls, staged install, PASS + DONE)"
 }
 
 # --- Case 2: missing package ---
@@ -149,10 +180,104 @@ test_unknown_option() {
     echo "PASS: unknown option exits 2 with usage"
 }
 
+# --- Case 7: rerun is idempotent for managed files ---
+test_rerun_idempotent() {
+    CASE_NAME="rerun idempotent"
+    local sysroot before after
+    sysroot="$(mktemp -d)/sysroot"
+    run_script --sysroot "${sysroot}"
+    expect_rc 0
+    [ -f "${sysroot}/usr/include/aarch64-linux-gnu/NvInfer.h" ] || fail "NvInfer.h not installed"
+    [ -f "${sysroot}/usr/local/cuda/include/cuda_runtime.h" ] || fail "cuda_runtime.h not installed"
+    [ -f "${sysroot}/usr/lib/aarch64-linux-gnu/libnvinfer.so.8.5.2" ] || fail "libnvinfer real file missing"
+    [ -L "${sysroot}/usr/lib/aarch64-linux-gnu/libnvinfer.so" ] || fail "libnvinfer.so not a symlink"
+    [ "$(readlink "${sysroot}/usr/lib/aarch64-linux-gnu/libnvinfer.so")" = "libnvinfer.so.8.5.2" ] \
+        || fail "libnvinfer.so wrong target"
+    [ -L "${sysroot}/usr/lib/aarch64-linux-gnu/libcudnn.so.8" ] || fail "libcudnn.so.8 not a symlink"
+    [ ! -e "${sysroot}/usr/lib/aarch64-linux-gnu/libcudnn.so" ] && \
+        [ ! -L "${sysroot}/usr/lib/aarch64-linux-gnu/libcudnn.so" ] \
+        || fail "libcudnn.so must not exist"
+    before="$(snapshot_managed "${sysroot}")"
+    run_script --sysroot "${sysroot}"
+    expect_rc 0
+    after="$(snapshot_managed "${sysroot}")"
+    if [ "${before}" != "${after}" ]; then
+        diff <(printf '%s\n' "${before}") <(printf '%s\n' "${after}") >&2 || true
+        fail "managed file tree changed on rerun"
+    fi
+    echo "PASS: rerun is idempotent for managed files"
+}
+
+# --- Case 8: interruption mid-copy leaves the sysroot untouched ---
+#
+# The script under test runs in its own session (start_new_session) so its
+# SIGINT disposition is the default, not SIG_IGN: background jobs started
+# with `&` from a non-interactive shell ignore SIGINT, which would silently
+# swallow the interrupt. SIGINT is then sent to the whole process group,
+# like Ctrl-C in a terminal.
+test_interrupted_copy() {
+    CASE_NAME="interrupt during copy"
+    local sysroot calls out err rc
+    sysroot="$(mktemp -d)/sysroot"
+    calls="$(mktemp -d)/calls.log"
+    out="$(mktemp -d)/out.log"
+    err="$(mktemp -d)/err.log"
+    rc="$(FAKE_SCP_SLEEP=8 python3 - \
+        "${SCRIPT}" "${sysroot}" "${FIXTURES}" "${EXPECTED_PKGS_FILE}" \
+        "${DEVICE_TREE}" "${calls}" "${out}" "${err}" <<'PYEOF'
+import os
+import signal
+import subprocess
+import sys
+import time
+
+script, sysroot, fixtures, pkg_file, device_tree, calls, out, err = sys.argv[1:]
+env = os.environ.copy()
+env["PATH"] = f"{fixtures}:{env.get('PATH', '')}"
+env["FAKE_SSH_LOG"] = calls
+env["FAKE_SCP_LOG"] = calls
+env["FAKE_PKG_QUERY_FILE"] = pkg_file
+env["FAKE_DEVICE_ROOT"] = device_tree
+env.pop("MANIFOLD3_SYSROOT", None)
+with open(out, "w") as out_f, open(err, "w") as err_f:
+    proc = subprocess.Popen(
+        ["bash", script, "--sysroot", sysroot],
+        env=env, stdout=out_f, stderr=err_f, start_new_session=True,
+    )
+    for _ in range(200):
+        try:
+            if "SCP-DONE:" in open(calls).read():
+                break
+        except OSError:
+            pass
+        time.sleep(0.1)
+    else:
+        print("NO_SCP")
+        os.killpg(proc.pid, signal.SIGTERM)
+        proc.wait()
+        sys.exit(3)
+    os.killpg(proc.pid, signal.SIGINT)
+    print(proc.wait())
+PYEOF
+)"
+    [ "${rc}" = "NO_SCP" ] && fail "scp never started"
+    [ "${rc}" -eq 0 ] && fail "interrupted run exited 0"
+    if ls -d "${sysroot}"/.sysroot-staging.* >/dev/null 2>&1; then
+        fail "staging directory not cleaned up"
+    fi
+    [ ! -e "${sysroot}/usr/include/aarch64-linux-gnu/NvInfer.h" ] \
+        || fail "partial copy left NvInfer.h in the sysroot"
+    [ ! -e "${sysroot}/usr/lib/aarch64-linux-gnu/libnvinfer.so" ] \
+        || fail "partial copy left libnvinfer.so in the sysroot"
+    echo "PASS: interrupt mid-copy leaves the sysroot untouched"
+}
+
 test_happy_path
 test_missing_package
 test_version_mismatch
 test_sysroot_missing_value
 test_two_positionals
 test_unknown_option
-echo "ALL 6 sysroot_extend_script cases passed"
+test_rerun_idempotent
+test_interrupted_copy
+echo "ALL 8 sysroot_extend_script cases passed"

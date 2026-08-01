@@ -272,21 +272,26 @@ flags and `#include <cuda_runtime.h>` / `#include <NvInfer.h>` resolve under the
 
 ### Device packages (recorded 2026-07-31)
 
-Output of `dpkg -l | grep -E "libnvinfer-dev|libnvonnxparser|nvidia-cuda|cudart"` on the device
-(`dji@192.168.42.120`):
+The exact packages the script queries on the device (`dji@192.168.42.120`), verified with
+`dpkg-query -W -f='${Version}' <pkg>` for each of the 14 names. The script hard-fails before
+any copy when a package is missing or its version differs:
 
 | Package | Version | Architecture |
 |---|---|---|
 | `cuda-cudart-11-4` | 11.4.298-1 | arm64 |
 | `cuda-cudart-dev-11-4` | 11.4.298-1 | arm64 |
 | `libcudla-11-4` | 11.4.298-1 | arm64 |
-| `libnvinfer-dev` | 8.5.2-1+cuda11.4 | arm64 |
-| `libnvinfer-plugin-dev` | 8.5.2-1+cuda11.4 | arm64 |
-| `libnvonnxparsers-dev` | 8.5.2-1+cuda11.4 | arm64 |
-| `libnvonnxparsers8` | 8.5.2-1+cuda11.4 | arm64 |
-| `python3-libnvinfer-dev` | 8.5.2-1+cuda11.4 | arm64 |
+| `libcudla-dev-11-4` | 11.4.298-1 | arm64 |
 | `libcublas-11-4` | 11.6.6.84-1 | arm64 |
+| `libcublas-dev-11-4` | 11.6.6.84-1 | arm64 |
 | `libcudnn8` | 8.6.0.166-1+cuda11.4 | arm64 |
+| `libcudnn8-dev` | 8.6.0.166-1+cuda11.4 | arm64 |
+| `libnvinfer8` | 8.5.2-1+cuda11.4 | arm64 |
+| `libnvinfer-dev` | 8.5.2-1+cuda11.4 | arm64 |
+| `libnvinfer-plugin8` | 8.5.2-1+cuda11.4 | arm64 |
+| `libnvinfer-plugin-dev` | 8.5.2-1+cuda11.4 | arm64 |
+| `libnvonnxparsers8` | 8.5.2-1+cuda11.4 | arm64 |
+| `libnvonnxparsers-dev` | 8.5.2-1+cuda11.4 | arm64 |
 
 These match the JetPack 5.1.3 baseline (CUDA 11.4, TensorRT 8.5.2) recorded in "Selected Build Baseline".
 
@@ -294,26 +299,33 @@ These match the JetPack 5.1.3 baseline (CUDA 11.4, TensorRT 8.5.2) recorded in "
 
 The Manifold 3 firmware is the runtime authority, so the Phase 5 extension is copied from the device. The
 `scripts/extend_sysroot_from_device.sh` script performs the whole procedure: it checks device reachability and
-package versions, copies every header and library, restores the device symlink layout (plain `scp` dereferences
-remote symlinks into full copies, so the duplicated dev links are removed and re-linked), and finally runs
-`scripts/check_inference_sysroot.sh`. It is idempotent.
+package versions, copies every header and library, and restores the device symlink layout.
+
+The copy is staged before anything touches the sysroot: the script creates a staging directory with `mktemp -d`
+inside the sysroot (same filesystem, so the final install is a rename), a cleanup trap removes it on EXIT, INT,
+and TERM, and the staged tree is verified with `scripts/check_inference_sysroot.sh` before installation. A failed
+or interrupted run therefore never leaves a partial extension in the sysroot; only the verified staged tree is
+installed, replacing exactly the managed files listed below.
 
 ```bash
 # Preconditions
 # 1. Manifold 3 connected via USB; network up (fixed address, see AGENTS.md).
 # 2. SSH key permissions: chmod 600 config/manifold3_id_rsa
-# 3. Device package versions match the table above (script warns on mismatch).
+# 3. Device package versions match the table above (script hard-fails on mismatch).
 
 scripts/extend_sysroot_from_device.sh              # 192.168.42.120, $MANIFOLD3_SYSROOT or ./sysroot
 scripts/extend_sysroot_from_device.sh 10.0.0.5      # other address
 scripts/extend_sysroot_from_device.sh --sysroot /opt/m3-sysroot   # explicit sysroot
-# Expected final line: PASS: inference sysroot extension present
+# Expected final lines:
+#   PASS: inference sysroot extension present
+#   DONE: sysroot extension applied to /opt/m3-sysroot
 ```
 
 The script is the primary path; the file table below and the symlink layout that follows document exactly what it
 copies and how it links, so a partial failure can be repaired by hand. If the device is unavailable, the same
 `.deb` packages (versions in the table above) can be extracted with `dpkg-deb -x` into the sysroot; the symlink
-restoration still applies.
+restoration still applies. Re-running the script is idempotent for the managed files listed below; all other
+sysroot content is left untouched.
 
 ### Copied files
 
@@ -371,10 +383,20 @@ bash scripts/check_inference_sysroot.sh
 # Expected: PASS: inference sysroot extension present
 ```
 
-The helper checks that `NvInfer.h`, `NvOnnxParser.h`, `cuda_runtime.h`, `cuda.h`, `crt/host_config.h`,
-`libnvinfer.so`, `libnvonnxparser.so`, `libnvinfer_plugin.so`, `libcudart.so`, `libcudla.so`,
-`libcublas.so`, `libcublasLt.so`, and `libcudnn.so.8` resolve
-under the sysroot (honors `MANIFOLD3_SYSROOT` when set).
+The sysroot under check is resolved with the priority `--sysroot <path>` > `$MANIFOLD3_SYSROOT` >
+`<repo>/sysroot`:
+
+```bash
+bash scripts/check_inference_sysroot.sh --sysroot /opt/m3-sysroot
+```
+
+The checker verifies that `NvInfer.h`, `NvOnnxParser.h`, `cuda_runtime.h`, `cuda.h`, `crt/host_config.h`
+are regular, non-empty files; that every managed real library (`libnvinfer.so.8.5.2`, `libnvonnxparser.so.8.5.2`,
+`libnvinfer_plugin.so.8.5.2`, `libcudnn.so.8.6.0`, `libcudart.so.11.4.298`, `libcudla.so.1.0.0`,
+`libcublas.so.11.6.6.84`, `libcublasLt.so.11.6.6.84`) is a regular, non-empty AArch64 ELF object with the exact
+device SONAME; that every dev symlink is a symlink (`-L`) whose `readlink` target matches the device exactly;
+that every link chain resolves to an existing file; and that the unversioned `libcudnn.so` does not exist
+(`[ -e ] || [ -L ]`, so a dangling link is also rejected).
 
 Note: this extension supersedes the deferred "CUDA Toolkit" and "TensorRT" rows of the Phase 2 table above for
 development files. The cuDNN runtime library is present (link closure); cuDNN headers remain deferred until the

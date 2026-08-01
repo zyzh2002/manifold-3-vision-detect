@@ -1,10 +1,64 @@
 #!/usr/bin/env bash
 # Fake scp for host tests of scripts/extend_sysroot_from_device.sh.
-# Records every invocation (prefixed with "SCP:") to $FAKE_SCP_LOG and
-# exits 0 without transferring anything.
+#
+# Records every invocation (prefixed with "SCP:") to $FAKE_SCP_LOG, then
+# performs the copy from the fixture device tree at $FAKE_DEVICE_ROOT.
+# Remote source paths arrive as dji@<ip>:/abs/path (possibly with a trailing
+# glob or "/." for -r) and are resolved under $FAKE_DEVICE_ROOT. Symlinks are
+# dereferenced into full copies, like real scp. When $FAKE_SCP_SLEEP is set,
+# the copy completes and the fake sleeps that many seconds, modelling a
+# transfer that is in flight when the script under test is interrupted.
 set -euo pipefail
 
 : "${FAKE_SCP_LOG:?FAKE_SCP_LOG must be set}"
+: "${FAKE_DEVICE_ROOT:?FAKE_DEVICE_ROOT must be set}"
 
 printf 'SCP: %s\n' "$*" >>"${FAKE_SCP_LOG}"
+
+RECURSIVE=0
+sources=()
+for a in "$@"; do
+    case "$a" in
+        -r)
+            RECURSIVE=1
+            ;;
+        *)
+            sources+=("$a")
+            ;;
+    esac
+done
+
+dest="${sources[${#sources[@]}-1]}"
+mkdir -p "${dest}"
+unset 'sources[${#sources[@]}-1]'
+
+for src in "${sources[@]}"; do
+    case "${src}" in
+        dji@*:*)
+            remote="${src#*:}"
+            ;;
+        *)
+            continue
+            ;;
+    esac
+    if [ "${RECURSIVE}" -eq 1 ]; then
+        cp -a "${FAKE_DEVICE_ROOT}${remote}" "${dest}/"
+    else
+        dir="$(dirname "${remote}")"
+        base="$(basename "${remote}")"
+        for f in "${FAKE_DEVICE_ROOT}${dir}"/${base}; do
+            [ -e "$f" ] || continue
+            if [ -L "$f" ]; then
+                cp -a "$(readlink -f "$f")" "${dest}/$(basename "${f}")"
+            else
+                cp -a "$f" "${dest}/"
+            fi
+        done
+    fi
+done
+
+if [ -n "${FAKE_SCP_SLEEP:-}" ]; then
+    printf 'SCP-DONE: %s\n' "$*" >>"${FAKE_SCP_LOG}"
+    sleep "${FAKE_SCP_SLEEP}"
+fi
 exit 0
