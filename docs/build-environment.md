@@ -74,9 +74,16 @@ Both `.local-toolchains/` and `sysroot/` are gitignored.
 The project provides `CMakePresets.json` with `manifold3-cross-release` and `host-debug`
 presets. CMake Tools (VSCode), CLion, and the CMake CLI all support presets natively.
 
-Environment variables `MANIFOLD3_TOOLCHAIN_DIR` and `MANIFOLD3_SYSROOT` must be set before using the
-`manifold3-cross-release` preset or an IDE session that reads `build-cross/compile_commands.json`. The reserved
-`host-debug` preset does not require them.
+The `manifold3-cross-release` preset injects the repository-local toolchain and sysroot
+defaults through its `environment` field (`MANIFOLD3_TOOLCHAIN_DIR` ->
+`.local-toolchains/bootlin-gcc-9.3-nvidia`, `MANIFOLD3_SYSROOT` -> `sysroot/`), so it
+configures out of the box without exporting anything. The reserved `host-debug` preset
+does not require them.
+
+Because the preset `environment` overrides any shell-exported values, point at a
+different toolchain or sysroot with the `-D` cache variables instead (see "Global
+toolchain install" below); the toolchain file prefers cache variables over environment
+variables.
 
 The repository `.clangd` configuration reads `build-cross/compile_commands.json`. Because `build-cross/` is
 gitignored, run `cmake --preset manifold3-cross-release` once after a fresh clone before expecting clangd
@@ -89,6 +96,15 @@ If you prefer a system-wide toolchain:
 ```bash
 export MANIFOLD3_TOOLCHAIN_DIR=/opt/toolchains/bootlin-gcc-9.3
 export MANIFOLD3_SYSROOT="/opt/sysroots/manifold3-r35.5.0"
+```
+
+When using the `manifold3-cross-release` preset, pass custom paths as `-D` cache
+variables instead, because the preset `environment` overrides shell-exported values:
+
+```bash
+cmake --preset manifold3-cross-release \
+  -D MANIFOLD3_TOOLCHAIN_DIR=/opt/toolchains/bootlin-gcc-9.3 \
+  -D MANIFOLD3_SYSROOT=/opt/sysroots/manifold3-r35.5.0
 ```
 
 ### Verification

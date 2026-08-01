@@ -135,6 +135,10 @@ export MANIFOLD3_SYSROOT="$(git rev-parse --show-toplevel)/sysroot"
 source scripts/setup_env.sh
 ```
 
+> 提示：`manifold3-cross-release` 预设已通过 `environment` 内置仓库本地的工具链与 sysroot 默认路径，
+> 直接 `cmake --preset manifold3-cross-release` 即可配置，无需手动 export。若使用自定义/全局安装的
+> 工具链，用 `-D MANIFOLD3_TOOLCHAIN_DIR=... -D MANIFOLD3_SYSROOT=...` 传入（cache 变量优先于预设环境）。
+
 完整的环境来源、依赖分类、ELF 验证要求和构建命令见 [`docs/build-environment.md`](docs/build-environment.md)。
 
 ## 开发环境依赖
