@@ -38,7 +38,7 @@ bool LiveviewCapture::Start() {
     if (started_) {
         return true;
     }
-    if (DjiLiveview_StartImageStream(DJI_LIVEVIEW_CAMERA_POSITION_NO_1, DJI_LIVEVIEW_CAMERA_SOURCE_M4E_VIS,
+    if (DjiLiveview_StartImageStream(DJI_LIVEVIEW_CAMERA_POSITION_NO_1, DJI_LIVEVIEW_CAMERA_SOURCE_M4T_VIS,
                                      PIXFMT_NV12, LiveviewCapture::OnImage) !=
         DJI_ERROR_SYSTEM_MODULE_CODE_SUCCESS) {
         std::fprintf(stderr, "DjiLiveview_StartImageStream failed\n");
@@ -52,7 +52,7 @@ void LiveviewCapture::Stop() {
     if (!started_) {
         return;
     }
-    if (DjiLiveview_StopImageStream(DJI_LIVEVIEW_CAMERA_POSITION_NO_1, DJI_LIVEVIEW_CAMERA_SOURCE_M4E_VIS) !=
+    if (DjiLiveview_StopImageStream(DJI_LIVEVIEW_CAMERA_POSITION_NO_1, DJI_LIVEVIEW_CAMERA_SOURCE_M4T_VIS) !=
         DJI_ERROR_SYSTEM_MODULE_CODE_SUCCESS) {
         std::fprintf(stderr, "DjiLiveview_StopImageStream failed\n");
     }

@@ -10,7 +10,7 @@
 
 namespace manifold3 {
 
-// Starts one Matrice 4E visible-light NV12 image stream and reports frame
+// Starts one Matrice 4T visible-light NV12 image stream and reports frame
 // statistics (count, source/handoff drops, invalids, size, callback interval).
 // The PSDK image callback runs on an SDK-owned thread; the PSDK buffer is only
 // valid during the callback, so each validated frame is copied into a bounded

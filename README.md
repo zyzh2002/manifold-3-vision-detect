@@ -1,12 +1,12 @@
 # manifold-3-vision-detect
 
-基于妙算 3 的无人机视觉检测系统：从 Matrice 4E 相机获取实时视频帧，并在板端使用 TensorRT 运行目标检测模型。完成联调后，应用将打包为 DPK 发布。
+基于妙算 3 的无人机视觉检测系统：从 Matrice 4T 相机获取实时视频帧，并在板端使用 TensorRT 运行目标检测模型。完成联调后，应用将打包为 DPK 发布。
 
 ## 已确定基线
 
 | 组件 | 版本 / 方案 |
 |---|---|
-| 无人机 | DJI Matrice 4E |
+| 无人机 | DJI Matrice 4T |
 | 机载计算平台 | DJI 妙算 3（Manifold 3） |
 | 平台软件基线 | NVIDIA JetPack 5.1.3 / Jetson Linux r35.5.0 |
 | 目标系统 | AArch64 GNU/Linux / Linux kernel 5.10 / glibc 2.31 |
@@ -39,7 +39,7 @@ Agent 还应阅读 [`AGENTS.md`](AGENTS.md)，其中包含完整的研究流程�
 首选路径直接使用妙算 3 支持的 PSDK ImageStream 获取 NV12 帧，避免在初始实现中增加 H.264 解码依赖：
 
 ```text
-Matrice 4E camera
+Matrice 4T camera
     -> PSDK Liveview ImageStream
     -> NV12 frame handoff
     -> TensorRT inference

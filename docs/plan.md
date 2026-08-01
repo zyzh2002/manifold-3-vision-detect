@@ -7,7 +7,7 @@ made after the preceding milestone produces target evidence.
 
 - [x] Create the repository structure.
 - [x] Pin DJI Payload SDK 3.16.0 as a read-only submodule.
-- [x] Document the Manifold 3, Matrice 4E, JetPack, toolchain, and sysroot baselines.
+- [x] Document the Manifold 3, Matrice 4T, JetPack, toolchain, and sysroot baselines.
 - [x] Separate confirmed constraints from deferred implementation decisions.
 
 ## Phase 2: Reproducible Target Build [DONE]
@@ -85,7 +85,7 @@ Start a minimal Payload SDK application on Manifold 3 and exercise its complete 
 
 ### Outcome
 
-Receive one Matrice 4E visible-light stream and expose bounded, owned frames to a consumer.
+Receive one Matrice 4T visible-light stream and expose bounded, owned frames to a consumer.
 
 ### Work
 
@@ -100,15 +100,15 @@ Receive one Matrice 4E visible-light stream and expose bounded, owned frames to 
 
 ### Target Validation Record (Phase 4)
 
-- `DjiLiveview_StartImageStream()` on `DJI_LIVEVIEW_CAMERA_POSITION_NO_1` / `DJI_LIVEVIEW_CAMERA_SOURCE_M4E_VIS`
+- `DjiLiveview_StartImageStream()` on `DJI_LIVEVIEW_CAMERA_POSITION_NO_1` / `DJI_LIVEVIEW_CAMERA_SOURCE_M4T_VIS`
   with `PIXFMT_NV12` delivers a stable 30 fps stream at 1440x1080 (2,332,800 bytes/frame).
 - 0 dropped frames over 1251 observed frames; `frameId` stays contiguous.
 - Callback interval: min 1.8 ms (burst), avg 33.3 ms, max 42.6 ms.
 - Process RSS settles at ~73 MB with no unbounded growth over the observation window.
 - Preconditions on target: stop `Smart3DExplore` (`dji_app_ctl stop Smart3DExplore`) before running, otherwise the
   local channel bind fails with "Address already in use".
-- Note: the device identifies the aircraft as "Matrice 4T" from its base info query; the M4E visible-light source
-  enum still selects the visible stream as intended.
+- The device base info identifies the aircraft as "Matrice 4T" (with a visible-light source); the
+  `DJI_LIVEVIEW_CAMERA_SOURCE_M4T_VIS` source enum selects the visible stream as intended.
 
 ### Exit Criteria
 

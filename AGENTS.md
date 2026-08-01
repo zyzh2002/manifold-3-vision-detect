@@ -69,7 +69,7 @@ Rules:
 
 ## Manifold 3 Device Access
 
-The Matrice 4E is connected to the development host via USB cable. The onboard
+The Matrice 4T is connected to the development host via USB cable. The onboard
 Manifold 3 computer exposes a fixed network address and accepts SSH with the
 key stored in the repository.
 

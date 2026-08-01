@@ -8,7 +8,7 @@ classification model is stable and enough samples are collected.
 
 ## Background and Constraints
 
-- Input: single visible-light NV12 stream at 1440x1080, 30 fps from the Matrice 4E
+- Input: single visible-light NV12 stream at 1440x1080, 30 fps from the Matrice 4T
   (Phase 4 validated on Manifold 3).
 - Acquisition: the drone flies at a fixed altitude with a top-down view, so crown
   pixel area is scale-consistent and can be calibrated to physical area.
