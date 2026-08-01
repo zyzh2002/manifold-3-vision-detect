@@ -146,6 +146,13 @@ The ~21 fps and ~1.4 ms latency figures above were measured with the synthetic d
 predict real-model performance. detections=0 in the synthetic run does not validate detection correctness.
 The hardened metrics now report per-window preprocess/engine/postprocess/end-to-end stages.
 
+Hardened metrics (2026-08-01): 658 windows over ~11 min on Manifold 3 at ~30 fps (27.5 first window, 30.0
+steady). Per-window stage latencies avg/p95: pre 12.8/13.0 ms, h2d 6.6/6.8 ms, exec 1.26/1.3 ms, d2h 4.4/4.5 ms,
+eng 12.2/12.9 ms, post 0.15/0.16 ms; e2e avg ~26.2 ms, p95 ~27.3 ms, max ~30 ms. source_drop=0 and invalid=0 in
+all 658 windows; handoff_drop=3 per window (constant). RSS 614,588 -> 634,132 kB over the run (~1.8 MB/min creep,
+consistent with the earlier driver/SDK lazy-allocation observation). Clean SIGTERM shutdown verified (process
+gone). All data from the synthetic dummy engine; does not predict real-model performance.
+
 ### Phase 5B: Real Model [PENDING]
 
 - [ ] Freeze the real YOLO11-seg model ABI (standard 2-output or custom multi-task contract)
@@ -154,6 +161,9 @@ The hardened metrics now report per-window preprocess/engine/postprocess/end-to-
 - [ ] Implement source-frame instance masks (crop, upscale, unpad)
 - [ ] Compare TensorRT outputs numerically against ONNX Runtime
 - [ ] Measure real-model latency, throughput, memory, and drops
+
+Note: the hardened metrics recorded under Phase 5A (2026-08-01) measure the synthetic dummy engine only; 5B
+must re-measure all stage latencies, throughput, RSS, and drops against the real model before Phase 5 is DONE.
 
 ### Exit Criteria
 
