@@ -54,27 +54,39 @@ H.264 路径首先用于能力验证和录像，仅在 ImageStream 无法满足�
 .
 ├── README.md
 ├── AGENTS.md
-├── cmake/                       # Phase 2 构建配置
+├── cmake/                       # 交叉编译工具链配置
 ├── config/                      # Manifold 3 SSH 访问配置
 ├── docs/
 │   ├── architecture.md          # 高层架构和模块边界
 │   ├── build-environment.md     # 工具链、sysroot、ABI 和链接策略
-│   └── plan.md                  # 结果导向的实施里程碑
-├── scripts/                     # 部署与打包脚本（deploy.sh 可直接部署调试）
+│   ├── plan.md                  # 结果导向的实施里程碑
+│   └── superpowers/             # 设计 spec 与实施计划（历史里程碑记录）
+├── scripts/                     # 部署、sysroot、凭据与工具脚本
+│   ├── deploy.sh                # 直接部署调试（<ip> run）
+│   ├── extend_sysroot_from_device.sh   # 从设备复制 Phase 5 sysroot 扩展
+│   ├── check_inference_sysroot.sh      # sysroot 扩展校验（--sysroot 可选）
+│   ├── configure_cross_with_credentials.sh  # 从 .local/credentials.env 注入凭据
+│   ├── generate_dummy_onnx.py   # 生成合成 YOLO11-seg 测试 ONNX（uv run）
+│   ├── run_inference_smoke.sh   # 目标机推理冒烟测试
+│   └── setup_env.sh             # 导出工具链与 sysroot 环境变量
 ├── src/
 │   ├── app/                     # 应用入口和模块组装
-│   ├── capture/                 # PSDK 视频帧接收
-│   ├── core/                    # PSDK 生命周期
-│   ├── inference/               # TensorRT 推理
+│   ├── capture/                 # PSDK 视频帧接收 + 有界帧槽（LatestFrameSlot）
+│   ├── core/                    # PSDK 生命周期 + 凭据填充（psdk_user_info）
+│   ├── inference/               # 预处理、TensorRT 引擎封装、后处理、指标
 │   └── platform/                # Manifold 3 HAL/OSAL 适配
-├── sysroot/                     # 本地 Phase 2 Jetson 基础 sysroot，不提交到 Git
+├── sysroot/                     # 本地 Jetson sysroot（Phase 2 基础 + Phase 5 扩展），不提交到 Git
 ├── tests/
-│   └── toolchain/               # 交叉编译和 ELF 冒烟验证
-├── third_party/
-│   └── psdk/                    # PSDK 3.16.0 子模块，只读
+│   ├── toolchain/               # 交叉编译和 ELF 冒烟验证
+│   ├── core/                    # psdk_user_info 单元测试
+│   ├── capture/                 # latest_frame_slot 单元测试
+│   ├── inference/               # 预处理/后处理/契约/指标单元测试
+│   └── scripts/                 # sysroot 脚本 fake-ssh/scp 测试
+└── third_party/
+    └── psdk/                    # PSDK 3.16.0 子模块，只读
 ```
 
-`sysroot/` 和可选的 `.local-toolchains/` 均被 Git 忽略，克隆仓库后不会自动存在。
+`sysroot/`、`.local/` 和可选的 `.local-toolchains/` 均被 Git 忽略，克隆仓库后不会自动存在。`.local/credentials.env` 存放开发凭据（权限 600），切勿提交。
 
 ## 当前范围
 
@@ -90,10 +102,21 @@ Phase 2 已全部完成，包括主机侧交叉构建与目标机运行验证：
 Phase 3（最小 PSDK 生命周期与 DPK 应用）已完成：
 - 已完成：platform 层移植（OSAL/FS/Socket/USB Bulk）、`src/core/` 最小生命周期、`src/app/` 入口、CMake 集成与链接、开发 DPK 生成（`build_dpk.sh`）、直接部署调试脚本（`scripts/deploy.sh <ip> run`）
 - 设备已验证：二进制运行、handler 注册、FunctionFS 通道就绪、占位凭据拒绝路径
-- 推迟至 Phase 6：DPK 安装/启动/停止/更新/卸载生命周期验证（需 DJI Pilot 2 开发者流程与真实开发者凭据，Phase 3 不可得）；开发迭代使用 `scripts/deploy.sh` 直连部署
-- 待真实凭据：提供真实 DJI 开发者凭据后验证连接飞机
+- 推迟至 Phase 6：DPK 安装/启动/停止/更新/卸载生命周期验证（需 DJI Pilot 2 开发者流程与真实开发者凭据）；开发迭代使用 `scripts/deploy.sh` 直连部署
 
-开发凭据通过 CMake 变量注入（`MANIFOLD3_APP_ID` 等，默认占位符），`app.json` 由 CMake 从同一变量生成，仓库不提交凭据。DJI 不提供官方示例凭据（`164884` 仅为格式示例）。
+Phase 4（单路视频采集）已完成：
+- `DjiLiveview_StartImageStream()` 在 Manifold 3 上验证通过：1440x1080 NV12 @ 30fps，0 丢帧
+- 回调缓冲不跨回调保留；latest-wins 有界移交（`LatestFrameSlot`）+ 三类丢帧计数（源/移交/无效）
+- 运行前需停止机上 Smart3DExplore（`dji_app_ctl stop Smart3DExplore`），否则 local channel bind 报 "Address already in use"
+
+Phase 5A（合成推理管线）已完成，Phase 5B（真实模型）待办：
+- CUDA/TensorRT/cuDNN sysroot 扩展：`scripts/extend_sysroot_from_device.sh` 从设备复制并 staging 安装，`scripts/check_inference_sysroot.sh` 校验链接/SONAME/ELF
+- CPU 预处理（NV12→1280x1280 NCHW）、合成 FP16 engine 按名契约加载（`synthetic_engine_contract.h`）、YOLO11-seg 形状后处理解码
+- 逐秒分阶段指标（预处理/推理/后处理/端到端，avg/p95/max）与三类丢帧、RSS 上报
+- 目标机实测（合成 engine）：~30fps，端到端 avg ~26ms，invalid=0，内存稳定
+- 真实 YOLO11-seg 模型接入（ABI、letterbox 逆变换、源帧 mask、与 onnxruntime 数值对比）见 [`docs/plan.md`](docs/plan.md) Phase 5B
+
+开发凭据通过 CMake 变量注入（`MANIFOLD3_APP_ID` 等，默认占位符），`app.json` 由 CMake 从同一变量生成，仓库不提交凭据。真实凭据存放于 git-ignored 的 `.local/credentials.env`（权限 600），运行 `scripts/configure_cross_with_credentials.sh` 自动注入配置；文件缺失时回退占位符。DJI 不提供官方示例凭据（`164884` 仅为格式示例）。
 
 更细的实现选择保留到对应阶段获取实测数据后再决定，详见 [`docs/plan.md`](docs/plan.md)。
 
@@ -122,8 +145,9 @@ source scripts/setup_env.sh
 |---|---|
 | `git` | 克隆仓库、管理子模块 |
 | `cmake` | 构建系统（≥ 3.21） |
-| `gcc` / `g++` / `make` | 主机端编译工具链（预留给后续单元测试） |
+| `gcc` / `g++` / `make` | 主机端编译工具链（预留给单元测试） |
 | `python3` | 辅助脚本、DeepWiki Skill |
+| `uv` | Python 依赖管理（生成 dummy ONNX 的 `onnx` 包） |
 | `binutils` | ELF 文件分析工具（`readelf`） |
 | `file` | ELF 文件类型和架构检测（`file`） |
 
@@ -131,12 +155,19 @@ source scripts/setup_env.sh
 
 ```bash
 sudo apt install git cmake build-essential python3 binutils file
+curl -LsSf https://astral.sh/uv/install.sh | sh    # uv 安装（或系统包管理器）
 ```
 
 **Fedora / RHEL：**
 
 ```bash
 sudo dnf install git cmake gcc gcc-c++ make python3 binutils file
+```
+
+生成 dummy ONNX 时通过 uv 按需拉取依赖，无需预先安装 `onnx`：
+
+```bash
+uv run --with onnx python3 scripts/generate_dummy_onnx.py
 ```
 
 > 自动化 AArch64 ELF 验证使用 Bootlin 工具链自带的 `aarch64-linux-readelf`，

@@ -241,3 +241,52 @@ DPK application are implemented and validated on Manifold 3. The DPK install/sta
 lifecycle verification is deferred to Phase 6: it requires the DJI Pilot 2 developer workflow and real DJI
 developer credentials, which are unavailable in Phase 3. Development iteration uses `scripts/deploy.sh`
 direct deployment instead.
+
+## Phase 4 / 5A Progress
+
+Phase 4 (single-stream capture) and Phase 5A (synthetic TensorRT inference pipeline) are complete and
+target-validated on Manifold 3. Phase 5B (real YOLO11-seg model) is pending.
+
+What exists:
+
+- `src/capture/` — `LiveviewCapture` (PSDK ImageStream NV12) plus `LatestFrameSlot`: validated NV12 frame
+  handoff with separate source-drop / handoff-drop / invalid-frame counters, condition-variable wakeup,
+  and clean Stop. Callback buffers are never retained.
+- `src/inference/` — CPU `PreprocessNv12ToNchw`, `TensorRtEngine` (loads ONLY the synthetic three-output
+  ABI in `synthetic_engine_contract.h`, by-name mode/dtype/shape validation, persistent CUDA buffers,
+  event-based stage timing), `DecodeSyntheticSeg` (exact-size-checked YOLO11-seg-shape decode),
+  `PipelineWindowStats` (per-window nearest-rank avg/p95/max per stage).
+- `src/core/psdk_user_info.{h,cpp}` — credential filling with correct fixed-field vs NUL-terminated
+  string handling, unit-tested.
+- `scripts/extend_sysroot_from_device.sh` — copies CUDA/TensorRT/cuDNN dev files from a connected device
+  into a staging dir, restores the exact device symlink layout, then installs; hard-fails on package
+  version mismatch. `scripts/check_inference_sysroot.sh --sysroot <path>` verifies links, SONAMEs, and
+  AArch64 ELF. Host tests use fake ssh/scp under `tests/scripts/`.
+- `scripts/configure_cross_with_credentials.sh` — injects credentials from git-ignored
+  `.local/credentials.env` (mode 600, never committed) into the cross configure; falls back to
+  placeholders when absent.
+- `scripts/generate_dummy_onnx.py` — generates the synthetic test ONNX (run via `uv run --with onnx`).
+- `scripts/run_inference_smoke.sh` — target-side synthetic engine smoke test.
+- Host unit tests: `tests/core/`, `tests/capture/`, `tests/inference/`, `tests/scripts/` (run with the
+  host-debug preset + ctest); cross ELF checks in `tests/toolchain/` (CXX set includes `libm.so.6`
+  because the device-derived sysroot libstdc++ carries that DT_NEEDED).
+
+Target validation (synthetic engine):
+
+- NV12 1440x1080 @ ~30 fps; per-window end-to-end avg ~26 ms, preprocess ~12.8 ms, engine ~12.2 ms,
+  postprocess ~0.15 ms; invalid frames 0; RSS stable (~1.9 MB/min creep attributed to driver/SDK lazy
+  allocation, no app leak path); clean SIGTERM shutdown.
+- These figures are synthetic-engine-only and do not predict real-model performance.
+
+What is deferred (Phase 5B, real model):
+
+- Freeze the real YOLO11-seg ABI (standard 2-output or custom multi-task contract); match PC/device
+  preprocessing; inverse-letterbox geometry; source-frame instance masks; numeric comparison against
+  ONNX Runtime; real-model latency/throughput/memory/drop measurement. See `docs/plan.md` Phase 5B and
+  `docs/superpowers/specs/2026-07-31-tree-crown-age-design.md`.
+
+Device notes:
+
+- Before running the app on Manifold 3, stop the onboard `Smart3DExplore` application
+  (`dji_app_ctl stop Smart3DExplore`; fall back to `pkill -f Smart3DExplore`), otherwise the local
+  channel bind fails with "Address already in use". Restore with `dji_app_ctl start Smart3DExplore`.

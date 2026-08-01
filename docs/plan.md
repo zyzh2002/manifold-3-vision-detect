@@ -81,7 +81,7 @@ Start a minimal Payload SDK application on Manifold 3 and exercise its complete 
 - Placeholder credentials are rejected with a descriptive error and exit code 1, as designed.
 - Development DPK package builds successfully (`manifold3-vision-detect_v01.00.00.00.dpk`).
 
-## Phase 4: Single-Stream Video Capture
+## Phase 4: Single-Stream Video Capture [DONE]
 
 ### Outcome
 
@@ -91,9 +91,11 @@ Receive one Matrice 4E visible-light stream and expose bounded, owned frames to 
 
 - [x] Initialize PSDK Liveview after core initialization.
 - [x] Validate `DjiLiveview_StartImageStream()` with NV12 output on Manifold 3.
-- [ ] Define frame ownership, metadata, bounded buffering, drop behavior, and shutdown behavior from observed callback
-  timing.
-- [ ] Record frame dimensions, format, frame rate, drop count, latency, CPU use, and memory growth.
+- [x] Define frame ownership, metadata, bounded buffering, drop behavior, and shutdown behavior from observed callback
+  timing. (`LatestFrameSlot`: latest-wins handoff, condition-variable wakeup, source/handoff/invalid drop counters,
+  Stop semantics; see Phase 5A hardening.)
+- [x] Record frame dimensions, format, frame rate, drop count, latency, CPU use, and memory growth. (Phase 4 record
+  below; per-window stage metrics added in Phase 5A.)
 - [ ] Validate H.264 capture separately for recording and fallback capability.
 
 ### Target Validation Record (Phase 4)

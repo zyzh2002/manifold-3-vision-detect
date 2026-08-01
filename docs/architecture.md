@@ -59,8 +59,21 @@ H.264 becomes the inference input only if:
 | `src/inference/` | Preprocess frames, execute TensorRT, and return structured detections. | TensorRT, required CUDA APIs |
 | `src/app/` | Select configuration and connect capture, inference, and output. | All application modules |
 
-The scaffold intentionally does not prescribe sink class names, a lock-free queue, a multi-consumer model, or a
-specific TensorRT wrapper. Those choices are made when their exact interfaces can be derived from working target data.
+The concrete interfaces were fixed from working target data:
+
+- `src/capture/` exposes `LatestFrameSlot` (`Push`/`WaitTake`/`Stop`) with `OwnedNv12Frame`
+  (`data`/`width`/`height`/`frame_id`) and `FramePushResult` (`kStored`/`kReplaced`/`kInvalid`).
+  Validation (`IsValidNv12Frame`) rejects null, odd, or size-mismatched buffers; `kReplaced`
+  counts handoff drops, `kInvalid` counts rejected frames. `LiveviewCapture` provides
+  `Initialize`/`Start`/`Stop`/`Shutdown` and a stats snapshot (`source_dropped_frames`,
+  `handoff_dropped_frames`, `invalid_frames`, interval percentiles).
+- `src/inference/` owns the pure-C++ preprocessing (`PreprocessNv12ToNchw`), the TensorRT
+  wrapper (`TensorRtEngine::Load`/`Infer` enforcing the synthetic three-output contract from
+  `synthetic_engine_contract.h` by name/dtype/shape), the decoder (`DecodeSyntheticSeg`),
+  and the per-window metrics (`PipelineWindowStats`). The result schema lives in
+  `inference_types.h` (`Detection`: species_id, age_class_id, confidence, cx/cy/w/h, mask_rle).
+- `src/app/` connects capture -> preprocess -> infer -> decode and prints one per-window stats
+  line per second; the consumer never blocks the PSDK callback thread.
 
 ## Build Boundary
 

@@ -434,6 +434,22 @@ from the same CMake variables so `user_app_id` always matches the compiled-in
 ID (a DPK install requirement). DPK packaging, installation, start, stop, and
 uninstall do not require valid credentials; only the aircraft connection does.
 
+### Local credential file (optional convenience)
+
+For daily development, real credentials may be stored in the git-ignored file
+`.local/credentials.env` (mode 600, never committed; `.local/` is in
+`.gitignore`). It exports `MANIFOLD3_APP_ID`, `MANIFOLD3_APP_KEY`,
+`MANIFOLD3_APP_LICENSE`, `MANIFOLD3_APP_NAME`, and
+`MANIFOLD3_DEVELOPER_ACCOUNT`, then configures the cross preset in one step:
+
+```bash
+scripts/configure_cross_with_credentials.sh
+```
+
+When the file is absent, the script configures with the placeholder defaults
+and prints a warning. The manual `-D` invocation above remains the primary,
+explicit path; the helper is a convenience wrapper around it.
+
 ## Link Policy
 
 The minimal PSDK application links:
