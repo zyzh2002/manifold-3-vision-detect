@@ -1,7 +1,8 @@
 CompileFlags:
   CompilationDatabase: build-cross
+---
 If:
-  PathMatch: third_party/psdk/**
+  PathMatch: third_party/psdk/.*
 CompileFlags:
   Add:
     - -Ithird_party/psdk/psdk_lib/include
