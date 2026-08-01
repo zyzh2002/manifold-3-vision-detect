@@ -42,3 +42,6 @@ cmake-build-*/
 .agents/skills/psdk-deepwiki-research/.cache/
 .agents/skills/psdk-deepwiki-research/**/__pycache__/
 .agents/skills/psdk-deepwiki-research/**/*.pyc
+
+# Local credentials (never commit)
+.local/
