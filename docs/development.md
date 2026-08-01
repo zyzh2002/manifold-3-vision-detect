@@ -8,7 +8,7 @@
 - 采用轻量级主干开发（trunk-based）：`main` 必须始终可构建、可验证。
 - 常规实现工作：在 `main` 上开短生命周期分支，一个目标一个分支。
 - 分支前缀：`feat/`、`fix/`、`docs/`、`chore/`、`refactor/`、`test/`，后跟 kebab-case 主题，
-  例如 `feat/liveview-capture`、`docs/build-environment`。
+  例如 `feat/liveview-capture`、`docs/update-guides`。
 - 不创建长期分支（`develop`、`integration`、`release` 等）。
 - 集成前先把开发分支 rebase 到最新 `main`，不产生 merge commit。
 - 合入 `main` 前需要明确授权；不要直接向 `main` 提交。

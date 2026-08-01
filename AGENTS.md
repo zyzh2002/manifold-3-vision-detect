@@ -214,7 +214,7 @@ allowlisting, or remote-exposure mitigation is required.
 - Use a lightweight trunk-based workflow. `main` must remain buildable and verifiable.
 - For normal implementation work, update `main` and create one short-lived branch per objective.
 - Use one of these branch prefixes: `feat/`, `fix/`, `docs/`, `chore/`, `refactor/`, or `test/`.
-- Use a short kebab-case topic after the prefix, for example `feat/liveview-capture` or `docs/build-environment`.
+- Use a short kebab-case topic after the prefix, for example `feat/liveview-capture` or `docs/update-guides`.
 - Keep each branch focused on one reviewable objective. Do not mix unrelated cleanup or features.
 - Do not create long-lived `develop`, `integration`, `release`, or agent-specific branches.
 - Rebase the development branch onto the latest `main` before integration; do not create merge commits.
