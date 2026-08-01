@@ -1,4 +1,5 @@
 add_library(capture STATIC
+    latest_frame_slot.cpp
     liveview_capture.cpp
 )
 

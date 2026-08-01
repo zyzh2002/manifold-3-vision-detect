@@ -1,18 +1,20 @@
 #pragma once
 
+#include <chrono>
 #include <cstdint>
 #include <mutex>
-#include <vector>
 
 #include <dji_liveview.h>
+
+#include "capture/latest_frame_slot.h"
 
 namespace manifold3 {
 
 // Starts one Matrice 4E visible-light NV12 image stream and reports frame
-// statistics (count, drops, size, callback interval). The PSDK image callback
-// runs on an SDK-owned thread; the PSDK buffer is only valid during the
-// callback, so the latest frame is copied into a bounded latest-wins slot
-// that a consumer drains via TakeFrame().
+// statistics (count, source/handoff drops, invalids, size, callback interval).
+// The PSDK image callback runs on an SDK-owned thread; the PSDK buffer is only
+// valid during the callback, so each validated frame is copied into a bounded
+// latest-wins slot that a consumer drains via WaitTake().
 class LiveviewCapture {
   public:
     static LiveviewCapture &Get();
@@ -27,28 +29,30 @@ class LiveviewCapture {
     // Stops the image stream.
     void Stop();
 
-    // Deinitializes the liveview module.
+    // Deinitializes the liveview module and wakes any WaitTake() waiter.
     void Shutdown();
 
     struct Stats {
-        uint64_t totalFrames = 0;
-        uint64_t droppedFrames = 0;
-        uint32_t lastFrameId = 0;
+        uint64_t total_frames = 0;           // valid NV12 frames stored
+        uint64_t source_dropped_frames = 0;  // PSDK frameId gaps
+        uint64_t handoff_dropped_frames = 0; // latest-wins replacements
+        uint64_t invalid_frames = 0;         // validation failures
+        uint32_t last_frame_id = 0;
         uint16_t width = 0;
         uint16_t height = 0;
-        uint64_t totalBytes = 0;
-        double minIntervalMs = 0.0;
-        double maxIntervalMs = 0.0;
-        double avgIntervalMs = 0.0;
+        uint64_t total_bytes = 0;
+        double min_interval_ms = 0.0;
+        double max_interval_ms = 0.0;
+        double avg_interval_ms = 0.0;
     };
 
     // Thread-safe snapshot of the callback counters.
     Stats GetStats() const;
 
-    // Copies the latest NV12 frame into out; returns false if none is
-    // available. The buffer is owned by the caller and the latest-wins slot
-    // is cleared, so a slow consumer never accumulates memory.
-    bool TakeFrame(std::vector<uint8_t> *out, uint32_t *width, uint32_t *height);
+    // Waits up to timeout for the latest NV12 frame, moves it out and clears
+    // the slot. Returns false on timeout or after Shutdown(). The buffer is
+    // owned by the caller and the latest-wins slot never accumulates memory.
+    bool WaitTake(manifold3::capture::OwnedNv12Frame *frame, std::chrono::milliseconds timeout);
 
     LiveviewCapture(const LiveviewCapture &) = delete;
     LiveviewCapture &operator=(const LiveviewCapture &) = delete;
@@ -65,10 +69,7 @@ class LiveviewCapture {
     mutable std::mutex statsMutex_;
     Stats stats_;
     uint64_t lastIntervalUs_ = 0;
-    std::mutex frameMutex_;
-    std::vector<uint8_t> latestFrame_;
-    uint32_t latestWidth_ = 0;
-    uint32_t latestHeight_ = 0;
+    capture::LatestFrameSlot frame_slot_;
 };
 
 } // namespace manifold3

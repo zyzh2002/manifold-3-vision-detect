@@ -86,15 +86,18 @@ int main(int argc, char **argv) {
     auto lastReport = std::chrono::steady_clock::now();
 
     while (!g_stopRequested) {
-        std::vector<uint8_t> frame;
-        uint32_t w = 0, h = 0;
-        if (!capture.TakeFrame(&frame, &w, &h)) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(5));
+        manifold3::capture::OwnedNv12Frame frame;
+        if (!capture.WaitTake(&frame, std::chrono::milliseconds(500))) {
+            if (g_stopRequested) {
+                break;
+            }
             continue;
         }
+        const uint32_t w = frame.width;
+        const uint32_t h = frame.height;
 
         std::vector<float> nchw;
-        if (!manifold3::inference::PreprocessNv12ToNchw(frame.data(), w, h,
+        if (!manifold3::inference::PreprocessNv12ToNchw(frame.data.data(), w, h,
                                                         manifold3::inference::kInputSize,
                                                         manifold3::inference::kInputSize, &nchw)) {
             std::fprintf(stderr, "preprocess failed\n");
@@ -133,7 +136,6 @@ int main(int argc, char **argv) {
             lastReport = now;
             latencySamples.clear();
         }
-        std::this_thread::sleep_for(std::chrono::milliseconds(20));
     }
 
     capture.Shutdown();

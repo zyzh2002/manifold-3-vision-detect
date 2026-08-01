@@ -60,6 +60,9 @@ void LiveviewCapture::Stop() {
 }
 
 void LiveviewCapture::Shutdown() {
+    // Wake any WaitTake() waiter first so the main loop cannot hang while the
+    // stream is being torn down.
+    frame_slot_.Stop();
     Stop();
     if (initialized_) {
         if (DjiLiveview_Deinit() != DJI_ERROR_SYSTEM_MODULE_CODE_SUCCESS) {
@@ -79,50 +82,57 @@ void LiveviewCapture::OnImage(E_DjiLiveViewCameraPosition position, const uint8_
     (void)position;
 
     auto &capture = Get();
+
+    // Reject non-NV12 formats before the slot push; the slot validates
+    // dimensions/length itself.
+    if (imageInfo.pixFmt != PIXFMT_NV12) {
+        std::lock_guard<std::mutex> lock(capture.statsMutex_);
+        ++capture.stats_.invalid_frames;
+        return;
+    }
+
+    const manifold3::capture::FramePushResult pushResult =
+        capture.frame_slot_.Push(buf, len, imageInfo.width, imageInfo.height, imageInfo.frameId);
+
     const int64_t nowUs = std::chrono::duration_cast<std::chrono::microseconds>(Clock::now().time_since_epoch())
                               .count();
 
+    // Push is called before taking the stats lock; the two locks are never
+    // nested.
     std::lock_guard<std::mutex> lock(capture.statsMutex_);
     Stats &stats = capture.stats_;
 
-    if (stats.totalFrames > 0 && imageInfo.frameId > stats.lastFrameId + 1) {
-        stats.droppedFrames += imageInfo.frameId - stats.lastFrameId - 1;
+    if (pushResult == manifold3::capture::FramePushResult::kInvalid) {
+        ++stats.invalid_frames;
+        return;
+    }
+
+    if (stats.total_frames > 0 && imageInfo.frameId > stats.last_frame_id + 1) {
+        stats.source_dropped_frames += imageInfo.frameId - stats.last_frame_id - 1;
     }
 
     if (capture.lastIntervalUs_ != 0) {
         const double intervalMs = static_cast<double>(nowUs - capture.lastIntervalUs_) * kUsToMs;
-        stats.minIntervalMs = (stats.totalFrames == 1) ? intervalMs : std::min(stats.minIntervalMs, intervalMs);
-        stats.maxIntervalMs = std::max(stats.maxIntervalMs, intervalMs);
-        stats.avgIntervalMs = (stats.avgIntervalMs * (stats.totalFrames - 1) + intervalMs) / stats.totalFrames;
+        stats.min_interval_ms = (stats.total_frames == 1) ? intervalMs : std::min(stats.min_interval_ms, intervalMs);
+        stats.max_interval_ms = std::max(stats.max_interval_ms, intervalMs);
+        stats.avg_interval_ms =
+            (stats.avg_interval_ms * (stats.total_frames - 1) + intervalMs) / stats.total_frames;
     }
     capture.lastIntervalUs_ = nowUs;
 
-    stats.lastFrameId = imageInfo.frameId;
+    stats.last_frame_id = imageInfo.frameId;
     stats.width = imageInfo.width;
     stats.height = imageInfo.height;
-    stats.totalBytes += len;
-    stats.totalFrames++;
-
-    // Copy the buffer into the single latest-wins slot; the PSDK buffer is
-    // only valid during the callback.
-    {
-        std::lock_guard<std::mutex> frameLock(capture.frameMutex_);
-        capture.latestFrame_.assign(buf, buf + len);
-        capture.latestWidth_ = imageInfo.width;
-        capture.latestHeight_ = imageInfo.height;
+    stats.total_bytes += len;
+    ++stats.total_frames;
+    if (pushResult == manifold3::capture::FramePushResult::kReplaced) {
+        ++stats.handoff_dropped_frames;
     }
 }
 
-bool LiveviewCapture::TakeFrame(std::vector<uint8_t> *out, uint32_t *width, uint32_t *height) {
-    std::lock_guard<std::mutex> lock(frameMutex_);
-    if (latestFrame_.empty()) {
-        return false;
-    }
-    *out = std::move(latestFrame_);
-    latestFrame_.clear();
-    *width = latestWidth_;
-    *height = latestHeight_;
-    return true;
+bool LiveviewCapture::WaitTake(manifold3::capture::OwnedNv12Frame *frame,
+                               std::chrono::milliseconds timeout) {
+    return frame_slot_.WaitTake(frame, timeout);
 }
 
 } // namespace manifold3
