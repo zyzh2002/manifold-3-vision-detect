@@ -247,16 +247,17 @@ bool TensorRtEngine::Load(const std::string &engine_path) {
         return Fail("cudaMalloc prototype buffer failed");
     }
 
-    cudaEvent_t events[4] = {nullptr, nullptr, nullptr, nullptr};
+    cudaEvent_t *events[4] = {
+        reinterpret_cast<cudaEvent_t *>(&event_start_),
+        reinterpret_cast<cudaEvent_t *>(&event_h2d_),
+        reinterpret_cast<cudaEvent_t *>(&event_execute_),
+        reinterpret_cast<cudaEvent_t *>(&event_d2h_),
+    };
     for (int32_t i = 0; i < 4; ++i) {
-        if (cudaEventCreate(&events[i]) != cudaSuccess) {
+        if (cudaEventCreate(events[i]) != cudaSuccess) {
             return Fail("cudaEventCreate failed");
         }
     }
-    event_start_ = events[0];
-    event_h2d_ = events[1];
-    event_execute_ = events[2];
-    event_d2h_ = events[3];
 
     IExecutionContext *context = static_cast<IExecutionContext *>(context_);
     if (!context->setTensorAddress(kSyntheticInputName, input_buffer_)) {
