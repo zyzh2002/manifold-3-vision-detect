@@ -31,7 +31,7 @@ per-frame budget is 33 ms at 30 fps.
 |---|---|---|---|
 | FP32 | 1x (baseline) | None | Not chosen: leaves Tensor Core performance unused |
 | **FP16** | ~2x | Usually <0.5% mAP | **Chosen**: negligible loss for YOLO-style detection, default embedded choice |
-| INT8 | ~3-4x | ~1-2% mAP | Deferred: requires a calibration set and is only worth it if measured latency exceeds the budget (decision triggers in `docs/plan.md`) |
+| INT8 | ~3-4x | ~1-2% mAP | Deferred: requires a calibration set and is only worth it if measured latency exceeds the budget (decision triggers in `.agents/docs/plan.md`) |
 
 Training precision is decoupled from inference precision: train on PC with FP32/AMP,
 verify the exported ONNX with onnxruntime (FP32 baseline), then select FP16 at engine
@@ -109,7 +109,7 @@ Module boundaries:
 - YOLO11s-seg FP16 at 1280x1280 estimates 15-25 ms inference on the target, leaving
   headroom for preprocessing.
 - If CPU preprocessing exceeds the budget: pipeline capture/inference across two
-  threads, or use VPI (decision triggers in `docs/plan.md`).
+  threads, or use VPI (decision triggers in `.agents/docs/plan.md`).
 
 ## Development Order (model training runs in parallel with code)
 
@@ -121,7 +121,7 @@ Module boundaries:
    (standard 2-output or custom multi-task contract), convert with `trtexec`, and
    verify detection outputs against PC-side onnxruntime results.
 3. Continuous inference measurement: latency, throughput, memory, frame drops.
-4. Record results in `docs/plan.md` Phase 5A target validation record.
+4. Record results in `.agents/docs/plan.md` Phase 5A target validation record.
 
 ## Regression Upgrade Path
 

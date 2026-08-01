@@ -98,7 +98,7 @@ Recorded: host tests 2/2 PASS; cross build + AArch64 ELF 2/2 PASS; credential sc
 
 ### Task 7: narrow documentation claims
 
-- `docs/plan.md`: Phase 5 split into 5A Synthetic Device Pipeline [DONE] and 5B Real Model [PENDING]; validation record states 21fps/1.4ms are synthetic-only; dets=0 does not validate detection correctness.
+- `.agents/docs/plan.md`: Phase 5 split into 5A Synthetic Device Pipeline [DONE] and 5B Real Model [PENDING]; validation record states 21fps/1.4ms are synthetic-only; dets=0 does not validate detection correctness.
 - Spec/plan docs: replace "real YOLO11-seg output shapes"/"exact postprocessing shapes"/"swap the engine" with "synthetic three-output test contract; real-model contract pending"; fix `160*160=25600` comment; remove trailing whitespace.
 - `docs/build-environment.md`: hard-fail on version mismatch; staging install; checker symlink/SONAME checks; final `DONE` line; idempotence scoped to managed files.
 - Commit: `docs: align phase 5 claims with the synthetic inference milestone`

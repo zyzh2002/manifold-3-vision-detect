@@ -13,9 +13,19 @@ Instructions for AI coding agents working on this repository.
 ## Language & Style
 
 - Use English for internal reasoning and Chinese for all user-facing communication.
-- **All code comments and documentation must be in English.**
-- Chinese characters are forbidden in source files, comments, commit messages, and agent-facing docs.
-- The only exception is `README.md` which may contain Chinese for end-user readability.
+- **All code comments, commit messages, and agent-facing documentation must be in English.** Chinese characters are forbidden in source files, comments, commit messages, and agent-facing docs.
+- Human-facing documentation under `docs/` is written in Chinese (see "Documentation Layout" below). It is the human handover language and is exempt from the English-only rule.
+
+## Documentation Layout
+
+Repository documentation is split by audience:
+
+- `docs/` — **Human-facing, Chinese.** Onboarding, project status, roadmap, architecture, build environment, and development workflow. Start at `docs/README.md`.
+- `.agents/docs/` — **Agent-facing, English.** Working artifacts: the milestone plan (`plan.md`), design specs (`specs/`), and implementation plans (`plans/`). Produced by the Superpowers workflow.
+- `AGENTS.md` / `CLAUDE.md` — Agent instructions at the repository root.
+- `README.md` — Human quick start, kept intentionally short; it links into `docs/`.
+
+Agents write working artifacts under `.agents/docs/`, never under `docs/`. Human docs are updated deliberately, in Chinese.
 
 ## Commands
 
@@ -66,6 +76,10 @@ Rules:
   stale entry that `experimental_install` will restore.
 - `psdk-deepwiki-research/` is project-owned and intentionally not managed by
   the CLI; do not install or remove it with `npx skills`.
+- `brainstorming`, `writing-plans`, `requesting-code-review`, and `subagent-driven-development` carry a deliberate
+  local path patch: their spec/plan save defaults and example strings point to `.agents/docs/specs/` and
+  `.agents/docs/plans/` instead of the upstream `docs/superpowers/...`. `npx skills check` reports these as
+  diverged; that is expected. `npx skills update` overwrites them — re-apply the path patch after any update.
 
 ## Manifold 3 Device Access
 
@@ -282,8 +296,8 @@ What is deferred (Phase 5B, real model):
 
 - Freeze the real YOLO11-seg ABI (standard 2-output or custom multi-task contract); match PC/device
   preprocessing; inverse-letterbox geometry; source-frame instance masks; numeric comparison against
-  ONNX Runtime; real-model latency/throughput/memory/drop measurement. See `docs/plan.md` Phase 5B and
-  `docs/superpowers/specs/2026-07-31-tree-crown-age-design.md`.
+  ONNX Runtime; real-model latency/throughput/memory/drop measurement. See `.agents/docs/plan.md` Phase 5B and
+  `.agents/docs/specs/2026-07-31-tree-crown-age-design.md`.
 
 Device notes:
 

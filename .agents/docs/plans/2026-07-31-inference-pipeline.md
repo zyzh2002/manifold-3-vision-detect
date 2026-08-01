@@ -1396,7 +1396,7 @@ git commit -m "feat: connect capture to inference with bounded frame handoff"
 ### Task 6: Continuous-run validation and Phase 5 record
 
 **Files:**
-- Modify: `docs/plan.md` (Phase 5 target validation record)
+- Modify: `.agents/docs/plan.md` (Phase 5 target validation record)
 
 - [ ] **Step 1: Run the full app on the target for 5+ minutes**
 
@@ -1406,14 +1406,14 @@ scripts/deploy.sh 192.168.42.120 --no-build run -- /home/dji/vision-detect/dummy
 
 Let it run ≥ 300 s, capture output. Record: frames processed, avg/p95/max inference latency, detections, dropped frames (capture), RSS trend (must be bounded).
 
-- [ ] **Step 2: Record the validation evidence in `docs/plan.md`**
+- [ ] **Step 2: Record the validation evidence in `.agents/docs/plan.md`**
 
 Add a "Target Validation Record (Phase 5)" subsection under Phase 5 with the measured numbers, the dummy-engine caveat, and the note that real-model swap is pending the trained YOLO11-seg model (separate PC-side plan).
 
 - [ ] **Step 3: Commit**
 
 ```bash
-git add docs/plan.md
+git add .agents/docs/plan.md
 git commit -m "docs: record phase 5 inference pipeline target validation"
 ```
 

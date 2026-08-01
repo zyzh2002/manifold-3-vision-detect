@@ -1,124 +1,122 @@
-# Architecture
+# 系统架构
 
-## System Boundary
+本文从人类可读的视角描述系统的边界、数据流、模块划分与关键接口。环境与构建细节见
+[build-environment.md](build-environment.md)。
 
-The application runs on DJI Manifold 3, receives camera data from a Matrice 4T through DJI Payload SDK, and performs
-target inference with the JetPack-provided TensorRT runtime.
+## 系统边界
+
+应用运行在 DJI 妙算 3（Manifold 3）上，通过 DJI Payload SDK（PSDK）从 Matrice 4T 相机接收数据，
+并使用 JetPack 提供的 TensorRT 运行时执行目标检测推理。
 
 ```text
 Matrice 4T camera
     |
-    | E-Port V2 and PSDK platform services
+    | E-Port V2 与 PSDK 平台服务
     v
 Manifold 3
     |
-    +-- Platform adaptation
-    +-- PSDK core lifecycle
-    +-- Liveview capture
-    +-- Bounded frame handoff
-    +-- TensorRT inference
-    +-- Product output selected after the inference path is measured
+    +-- 平台适配（platform）
+    +-- PSDK 核心生命周期（core）
+    +-- 实时视频采集（capture）
+    +-- 有界帧移交（LatestFrameSlot）
+    +-- TensorRT 推理（inference）
+    +-- 产品输出（按实测选择，见文末）
 ```
 
-## Primary Data Flow
+## 主要数据流
 
-The planned initial implementation uses decoded image streaming because Manifold 3 exposes this path directly through
-PSDK. Target testing must confirm the selected Matrice 4T source and NV12 mode:
+初始实现采用解码后的图像流（PSDK ImageStream），因为妙算 3 直接暴露该路径，可避免初期引入 H.264 解码依赖：
 
 ```text
 DjiLiveview_StartImageStream
-    -> NV12 callback buffer
-    -> copy or transfer into bounded application-owned storage
-    -> preprocessing
-    -> TensorRT inference
-    -> structured detection result
+    -> NV12 回调缓冲
+    -> 拷贝/移交到有界的应用自有存储
+    -> 预处理（NV12 -> NCHW）
+    -> TensorRT 推理
+    -> 结构化检测结果
 ```
 
-The capture layer will copy callback data into application-owned storage before returning unless target-validated API
-semantics establish another safe ownership transfer. Expensive preprocessing or inference will not run in the callback
-thread. When the consumer falls behind, the bounded handoff applies an explicit drop policy rather than growing memory
-without limit.
+关键约束：
 
-## Secondary H.264 Path
+- 采集层在返回回调前将数据拷贝进应用自有存储（除非目标机验证出其他安全的移交语义）。
+- 昂贵的预处理/推理**不**运行在 PSDK 回调线程中。
+- 消费者落后时，有界移交按显式策略丢弃，而不是无界增长内存。
 
-`DjiLiveview_StartH264Stream()` will be validated for recording and as a fallback capability. It is not the initial
-inference input because that would require a separate decoding dependency and another buffering stage.
+## 次要 H.264 路径
 
-H.264 becomes the inference input only if:
+`DjiLiveview_StartH264Stream()` 用于录像与回退能力验证，不作为初始推理输入（否则需额外解码依赖与缓存级）。
+仅当以下任一情况成立时，H.264 才成为推理输入：
 
-- decoded ImageStream is unavailable for the required camera source or mode; or
-- the product must preserve or process the compressed stream for another verified requirement.
+- 所需相机源或模式下解码 ImageStream 不可用；或
+- 产品必须保留/处理压缩流以满足已验证的需求。
 
-## Module Boundaries
+## 模块边界
 
-| Module | Responsibility | Direct dependencies |
+| 模块 | 职责 | 直接依赖 |
 |---|---|---|
-| `src/platform/` | Register Linux OSAL, logging, filesystem, socket, and Manifold 3 USB Bulk handlers. | PSDK platform headers and Linux APIs |
-| `src/core/` | Own PSDK initialization, application start, readiness, and orderly shutdown. | `src/platform/`, PSDK core APIs |
-| `src/capture/` | Start and stop one selected Liveview source and expose owned frames through a bounded interface. | `src/core/`, PSDK Liveview APIs |
-| `src/inference/` | Preprocess frames, execute TensorRT, and return structured detections. | TensorRT, required CUDA APIs |
-| `src/app/` | Select configuration and connect capture, inference, and output. | All application modules |
+| `src/platform/` | 注册 Linux OSAL、日志、文件系统、Socket、妙算 3 USB Bulk 处理器 | PSDK 平台头文件与 Linux API |
+| `src/core/` | 负责 PSDK 初始化、应用启动、就绪与有序关闭 | `src/platform/`、PSDK 核心 API |
+| `src/capture/` | 启停一路选定的 Liveview 源，通过有界接口暴露自有帧 | `src/core/`、PSDK Liveview API |
+| `src/inference/` | 预处理帧、执行 TensorRT、返回结构化检测结果 | TensorRT、所需 CUDA API |
+| `src/app/` | 选择配置，串联采集、推理与输出 | 所有应用模块 |
 
-The concrete interfaces were fixed from working target data:
+### 已落地的关键接口（基于目标机实测数据）
 
-- `src/capture/` exposes `LatestFrameSlot` (`Push`/`WaitTake`/`Stop`) with `OwnedNv12Frame`
-  (`data`/`width`/`height`/`frame_id`) and `FramePushResult` (`kStored`/`kReplaced`/`kInvalid`).
-  Validation (`IsValidNv12Frame`) rejects null, odd, or size-mismatched buffers; `kReplaced`
-  counts handoff drops, `kInvalid` counts rejected frames. `LiveviewCapture` provides
-  `Initialize`/`Start`/`Stop`/`Shutdown` and a stats snapshot (`source_dropped_frames`,
-  `handoff_dropped_frames`, `invalid_frames`, interval percentiles).
-- `src/inference/` owns the pure-C++ preprocessing (`PreprocessNv12ToNchw`), the TensorRT
-  wrapper (`TensorRtEngine::Load`/`Infer` enforcing the synthetic three-output contract from
-  `synthetic_engine_contract.h` by name/dtype/shape), the decoder (`DecodeSyntheticSeg`),
-  and the per-window metrics (`PipelineWindowStats`). The result schema lives in
-  `inference_types.h` (`Detection`: species_id, age_class_id, confidence, cx/cy/w/h, mask_rle).
-- `src/app/` connects capture -> preprocess -> infer -> decode and prints one per-window stats
-  line per second; the consumer never blocks the PSDK callback thread.
+- `src/capture/`：
+  - `LatestFrameSlot`（`Push` / `WaitTake` / `Stop`），latest-wins 有界移交；
+  - `OwnedNv12Frame`（`data` / `width` / `height` / `frame_id`）；
+  - `FramePushResult`（`kStored` / `kReplaced` / `kInvalid`）；`IsValidNv12Frame` 拒绝空、奇宽高或尺寸不符的缓冲；
+    `kReplaced` 计移交丢弃，`kInvalid` 计无效帧；
+  - `LiveviewCapture`（`Initialize` / `Start` / `Stop` / `Shutdown`）与统计快照
+    （`source_dropped_frames`、`handoff_dropped_frames`、`invalid_frames`、间隔百分位）。
+- `src/inference/`：
+  - 纯 C++ 预处理 `PreprocessNv12ToNchw`；
+  - TensorRT 封装 `TensorRtEngine::Load` / `Infer`，按名/类型/形状强制 `synthetic_engine_contract.h`
+    中的合成三输出契约；
+  - 解码器 `DecodeSyntheticSeg` 与逐窗口指标 `PipelineWindowStats`；
+  - 结果模式位于 `inference_types.h`（`Detection`：species_id、age_class_id、confidence、cx/cy/w/h、mask_rle）。
+- `src/app/`：串联 采集 → 预处理 → 推理 → 解码，每秒输出一行分阶段指标；消费者不阻塞 PSDK 回调线程。
 
-## Build Boundary
+## 构建边界
 
 ```text
-x86_64 Linux host
+x86_64 Linux 主机
     |
     +-- NVIDIA Bootlin GCC 9.3.0
     |
-    +-- Jetson Linux r35.5.0 Phase 2 base sysroot
-    |     +-- BSP and sample root filesystem
-    |     +-- NVIDIA binary overlay and Tegra runtime libraries
+    +-- Jetson Linux r35.5.0 Phase 2 基础 sysroot
+    |     +-- BSP 与示例 rootfs
+    |     +-- NVIDIA 二进制 overlay 与 Tegra 运行时库
     |
-    +-- Phase 5 sysroot extension
-    |     +-- CUDA 11.4 development files
-    |     +-- TensorRT 8.5.2 and cuDNN development files
+    +-- Phase 5 sysroot 扩展
+    |     +-- CUDA 11.4 开发文件
+    |     +-- TensorRT 8.5.2 与 cuDNN 开发文件
     |
-    +-- PSDK 3.16.0 headers and AArch64 libpayloadsdk.a
+    +-- PSDK 3.16.0 头文件与 AArch64 libpayloadsdk.a
     |
-    +-- AArch64 application
-          -> direct target validation
-          -> DPK packaging
+    +-- AArch64 应用
+          -> 直连目标机验证
+          -> DPK 打包
 ```
 
-The standard Jetson Linux r35.5.0 sysroot is the build baseline. Manifold 3 firmware is the runtime authority. Target
-files are added as an overlay only after a concrete mismatch is measured. See `docs/build-environment.md` for version,
-link, and verification rules.
+标准 r35.5.0 sysroot 是构建基线；妙算 3 固件是运行时权威。仅当实测出具体不匹配时才以文档记录的方式
+从设备覆盖文件。版本、链接与验证规则见 [build-environment.md](build-environment.md)。
 
-## Error and Shutdown Model
+## 错误与关闭模型
 
-- Platform registration or PSDK core initialization failure prevents application startup.
-- Capture startup failure leaves inference stopped and reports the exact PSDK return code.
-- Invalid frame metadata or unsupported formats are rejected before entering inference.
-- Inference errors do not block the PSDK callback thread; the application records the error and applies its configured
-  stop or retry policy outside the callback.
-- Shutdown stops capture first, drains or discards bounded frames, destroys inference resources, deinitializes Liveview,
-  and then tears down the remaining PSDK lifecycle in reverse order.
+- 平台注册或 PSDK 核心初始化失败 ⇒ 应用无法启动。
+- 采集启动失败 ⇒ 推理保持停止并报告具体 PSDK 返回码。
+- 无效帧元数据或不支持的格式 ⇒ 在进入推理前被拒绝。
+- 推理错误不阻塞 PSDK 回调线程：应用记录错误并在回调外执行配置的停止/重试策略。
+- 关闭顺序：先停采集，排空或丢弃有界帧，销毁推理资源，反初始化 Liveview，再按逆序拆除其余 PSDK 生命周期。
 
-## Deferred Product Output
+## 推迟的产品输出
 
-The inference pipeline initially produces local structured detection results. A later milestone selects one product
-output based on actual requirements and verified PSDK support:
+推理管线初期只产生本地结构化检测结果。后续里程碑将依据实际需求与已验证的 PSDK 支持选择一种产品输出：
 
-- Pilot AI metadata;
-- processed H.264 video;
-- file or local IPC output;
-- a network transport permitted by the application environment.
+- Pilot AI 元数据；
+- 处理后的 H.264 视频；
+- 文件或本地 IPC 输出；
+- 应用环境允许的网络传输。
 
-No output-specific PSDK camera emulation or encoder lifecycle is introduced before that selection.
+在选择之前，不引入任何输出相关的 PSDK 相机模拟或编码器生命周期。
