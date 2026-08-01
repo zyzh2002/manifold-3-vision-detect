@@ -47,3 +47,16 @@ target_link_libraries(manifold3_vision_detect PRIVATE
     m
     dl
 )
+
+# Capture-only demo for customer demonstration: terminal render + stats.
+# No TensorRT dependency; links only capture/core/platform + PSDK.
+add_executable(capture_demo capture_demo.cpp)
+target_link_options(capture_demo PRIVATE -pthread)
+target_link_libraries(capture_demo PRIVATE
+    capture
+    core
+    platform
+    ${CMAKE_SOURCE_DIR}/third_party/psdk/psdk_lib/lib/aarch64-linux-gnu-gcc/libpayloadsdk.a
+    m
+    dl
+)
