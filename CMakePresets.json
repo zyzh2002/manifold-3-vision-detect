@@ -12,6 +12,10 @@
             "description": "Cross-compile for AArch64 Manifold 3 with NVIDIA Bootlin GCC 9.3",
             "binaryDir": "build-cross",
             "toolchainFile": "cmake/aarch64-manifold3.cmake",
+            "environment": {
+                "MANIFOLD3_TOOLCHAIN_DIR": "${sourceDir}/.local-toolchains/bootlin-gcc-9.3-nvidia",
+                "MANIFOLD3_SYSROOT": "${sourceDir}/sysroot"
+            },
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Release"
             }
