@@ -1,8 +1,8 @@
 #include <cstdio>
-#include <cstdlib>
 #include <string>
 #include <vector>
 
+#include "inference/synthetic_engine_contract.h"
 #include "inference/tensorrt_engine.h"
 
 int main(int argc, char **argv) {
@@ -14,13 +14,27 @@ int main(int argc, char **argv) {
     if (!engine.Load(argv[1])) {
         return 1;
     }
-    std::vector<float> input(1 * 3 * 1280 * 1280, 0.5f);
-    std::vector<float> out0, out1, out2;
-    int64_t latencyUs = 0;
-    if (!engine.Infer(input, &out0, &out1, &out2, &latencyUs)) {
+    std::vector<float> input(static_cast<size_t>(manifold3::inference::kSyntheticInputChannels) *
+                                 manifold3::inference::kSyntheticInputHeight *
+                                 manifold3::inference::kSyntheticInputWidth,
+                             0.5f);
+    manifold3::inference::SyntheticOutputs outputs;
+    manifold3::inference::EngineTiming timing;
+    if (!engine.Infer(input, &outputs, &timing)) {
         return 1;
     }
-    std::printf("inference smoke PASS: out0=%zu out1=%zu out2=%zu latency_us=%lld\n", out0.size(), out1.size(),
-                out2.size(), static_cast<long long>(latencyUs));
+    std::printf("synthetic inference smoke PASS\n");
+    std::printf("images=float[1,%d,%d,%d]\n", manifold3::inference::kSyntheticInputChannels,
+                manifold3::inference::kSyntheticInputHeight, manifold3::inference::kSyntheticInputWidth);
+    std::printf("output0=float[1,%d,%d]\n", manifold3::inference::kSyntheticPredictionChannels,
+                manifold3::inference::kSyntheticAnchors);
+    std::printf("output1=float[1,%d,%d]\n", manifold3::inference::kSyntheticMaskCoefficientChannels,
+                manifold3::inference::kSyntheticAnchors);
+    std::printf("output2=float[1,%d,%d,%d]\n", manifold3::inference::kSyntheticMaskCoefficientChannels,
+                manifold3::inference::kSyntheticPrototypeHeight, manifold3::inference::kSyntheticPrototypeWidth);
+    std::printf("timing_h2d_us=%lld\n", static_cast<long long>(timing.host_to_device_us));
+    std::printf("timing_execute_us=%lld\n", static_cast<long long>(timing.execute_us));
+    std::printf("timing_d2h_us=%lld\n", static_cast<long long>(timing.device_to_host_us));
+    std::printf("timing_total_us=%lld\n", static_cast<long long>(timing.total_us));
     return 0;
 }

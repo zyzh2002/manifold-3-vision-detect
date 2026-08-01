@@ -2,6 +2,9 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
+
+#include "inference/synthetic_engine_contract.h"
 
 namespace manifold3 {
 namespace inference {
@@ -49,21 +52,46 @@ std::vector<uint8_t> EncodeRle(const std::vector<uint8_t> &mask) {
 
 } // namespace
 
-void DecodeYolo11Seg(const std::vector<float> &output0, const std::vector<float> &output1,
-                     const std::vector<float> &output2, uint32_t anchors, uint32_t mask_w, uint32_t mask_h,
-                     std::vector<Detection> *detections) {
+bool DecodeSyntheticSeg(const SyntheticOutputs &outputs, std::vector<Detection> *detections) {
+    if (detections == nullptr) {
+        std::fprintf(stderr, "DecodeSyntheticSeg: null detections output\n");
+        return false;
+    }
+    const size_t predictionSize = static_cast<size_t>(kSyntheticPredictionChannels) * kSyntheticAnchors;
+    const size_t maskCoefficientsSize = static_cast<size_t>(kSyntheticMaskCoefficientChannels) * kSyntheticAnchors;
+    const size_t prototypeSize = static_cast<size_t>(kSyntheticMaskCoefficientChannels) * kSyntheticPrototypeHeight *
+                                 kSyntheticPrototypeWidth;
+    if (outputs.prediction.size() != predictionSize) {
+        std::fprintf(stderr, "DecodeSyntheticSeg: prediction size %zu, expected %zu\n", outputs.prediction.size(),
+                     predictionSize);
+        return false;
+    }
+    if (outputs.mask_coefficients.size() != maskCoefficientsSize) {
+        std::fprintf(stderr, "DecodeSyntheticSeg: mask_coefficients size %zu, expected %zu\n",
+                     outputs.mask_coefficients.size(), maskCoefficientsSize);
+        return false;
+    }
+    if (outputs.prototype.size() != prototypeSize) {
+        std::fprintf(stderr, "DecodeSyntheticSeg: prototype size %zu, expected %zu\n", outputs.prototype.size(),
+                     prototypeSize);
+        return false;
+    }
+
     detections->clear();
     constexpr uint32_t kNumClasses = kNumSpecies + kNumAgeBins;
-    const uint32_t maskStride = anchors;
+    constexpr uint32_t kAnchors = static_cast<uint32_t>(kSyntheticAnchors);
+    constexpr uint32_t kMaskW = static_cast<uint32_t>(kSyntheticPrototypeWidth);
+    constexpr uint32_t kMaskH = static_cast<uint32_t>(kSyntheticPrototypeHeight);
+    const uint32_t maskStride = kAnchors;
 
     std::vector<Detection> candidates;
-    for (uint32_t a = 0; a < anchors; ++a) {
+    for (uint32_t a = 0; a < kAnchors; ++a) {
         // Species and age are independent heads over their own channel spans;
         // detection confidence is the stronger of the two.
         float bestSpecies = 0.0f;
         uint32_t speciesIdx = 0;
         for (uint32_t c = 0; c < kNumSpecies; ++c) {
-            const float score = output0[(4 + c) * maskStride + a];
+            const float score = outputs.prediction[(4 + c) * maskStride + a];
             if (score > bestSpecies) {
                 bestSpecies = score;
                 speciesIdx = c;
@@ -72,7 +100,7 @@ void DecodeYolo11Seg(const std::vector<float> &output0, const std::vector<float>
         float bestAge = 0.0f;
         uint32_t ageIdx = 0;
         for (uint32_t c = 0; c < kNumAgeBins; ++c) {
-            const float score = output0[(4 + kNumSpecies + c) * maskStride + a];
+            const float score = outputs.prediction[(4 + kNumSpecies + c) * maskStride + a];
             if (score > bestAge) {
                 bestAge = score;
                 ageIdx = c;
@@ -83,20 +111,21 @@ void DecodeYolo11Seg(const std::vector<float> &output0, const std::vector<float>
             continue;
         }
         Detection d;
-        d.cx = NormalizedToU16(output0[0 * maskStride + a]);
-        d.cy = NormalizedToU16(output0[1 * maskStride + a]);
-        d.w = NormalizedToU16(output0[2 * maskStride + a]);
-        d.h = NormalizedToU16(output0[3 * maskStride + a]);
+        d.cx = NormalizedToU16(outputs.prediction[0 * maskStride + a]);
+        d.cy = NormalizedToU16(outputs.prediction[1 * maskStride + a]);
+        d.w = NormalizedToU16(outputs.prediction[2 * maskStride + a]);
+        d.h = NormalizedToU16(outputs.prediction[3 * maskStride + a]);
         d.confidence = bestClass;
         d.species_id = static_cast<uint16_t>(speciesIdx);
         d.age_class_id = static_cast<uint16_t>(ageIdx);
 
         // Mask: sum of coeffs * protos per pixel, sigmoid, threshold 0.5.
-        std::vector<uint8_t> mask(mask_w * mask_h, 0);
-        for (uint32_t p = 0; p < mask_w * mask_h; ++p) {
+        std::vector<uint8_t> mask(kMaskW * kMaskH, 0);
+        for (uint32_t p = 0; p < kMaskW * kMaskH; ++p) {
             float acc = 0.0f;
             for (uint32_t k = 0; k < kNumMaskCoeffs; ++k) {
-                acc += output1[k * maskStride + a] * output2[k * mask_w * mask_h + p];
+                acc += outputs.mask_coefficients[k * maskStride + a] *
+                       outputs.prototype[k * kMaskW * kMaskH + p];
             }
             mask[p] = Sigmoid(acc) >= 0.5f ? 1 : 0;
         }
@@ -119,6 +148,7 @@ void DecodeYolo11Seg(const std::vector<float> &output0, const std::vector<float>
             }
         }
     }
+    return true;
 }
 
 } // namespace inference

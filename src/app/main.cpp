@@ -11,6 +11,7 @@
 #include "inference/inference_types.h"
 #include "inference/postprocess.h"
 #include "inference/preprocess.h"
+#include "inference/synthetic_engine_contract.h"
 #include "inference/tensorrt_engine.h"
 
 namespace {
@@ -103,19 +104,20 @@ int main(int argc, char **argv) {
             std::fprintf(stderr, "preprocess failed\n");
             continue;
         }
-        std::vector<float> out0, out1, out2;
-        int64_t latencyUs = 0;
-        if (!engine.Infer(nchw, &out0, &out1, &out2, &latencyUs)) {
+        manifold3::inference::SyntheticOutputs outputs;
+        manifold3::inference::EngineTiming timing;
+        if (!engine.Infer(nchw, &outputs, &timing)) {
             std::fprintf(stderr, "infer failed\n");
             continue;
         }
-        constexpr uint32_t kChannels =
-            4 + manifold3::inference::kNumSpecies + manifold3::inference::kNumAgeBins + 32;
-        const uint32_t anchors = static_cast<uint32_t>(out0.size() / kChannels);
         std::vector<manifold3::inference::Detection> dets;
-        manifold3::inference::DecodeYolo11Seg(out0, out1, out2, anchors, 160, 160, &dets);
+        if (!manifold3::inference::DecodeSyntheticSeg(outputs, &dets)) {
+            std::fprintf(stderr, "decode failed\n");
+            continue;
+        }
 
         ++inferenceCount;
+        const int64_t latencyUs = timing.total_us;
         latencySumUs += latencyUs;
         latencyMaxUs = std::max(latencyMaxUs, latencyUs);
         latencySamples.push_back(latencyUs);
