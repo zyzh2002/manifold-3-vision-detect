@@ -1,0 +1,14 @@
+cuda-cudart-11-4 11.4.298-1
+cuda-cudart-dev-11-4 11.4.298-1
+libcudla-11-4 11.4.298-1
+libcudla-dev-11-4 11.4.298-1
+libcublas-11-4 11.6.6.84-1
+libcublas-dev-11-4 11.6.6.84-1
+libcudnn8 8.6.0.166-1+cuda11.4
+libcudnn8-dev 8.6.0.166-1+cuda11.4
+libnvinfer8 8.5.2-1+cuda11.4
+libnvinfer-dev 8.5.2-1+cuda11.4
+libnvinfer-plugin8 8.5.2-1+cuda11.4
+libnvinfer-plugin-dev 8.5.2-1+cuda11.4
+libnvonnxparsers8 8.5.2-1+cuda11.4
+libnvonnxparsers-dev 8.5.2-1+cuda11.4

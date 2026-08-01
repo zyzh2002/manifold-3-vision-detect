@@ -4,18 +4,22 @@
 #
 # The Manifold 3 firmware is the runtime authority, so the Phase 5 sysroot
 # extension is copied from the device (see docs/build-environment.md,
-# "Phase 5 Sysroot Extension"). Plain scp dereferences remote symlinks into
-# full file copies, so this script restores the device symlink layout after
+# "Phase 5 Sysroot Extension"). The script verifies the exact installed
+# versions of every package that provides the copied files and hard-fails
+# before any copy when a package is missing or its version differs from the
+# documented baseline. Plain scp dereferences remote symlinks into full
+# file copies, so this script restores the device symlink layout after
 # copying. It is idempotent: re-running against an already-extended sysroot
 # replaces the files and re-links the symlinks to the same result.
 #
 # Usage:
-#   scripts/extend_sysroot_from_device.sh [manifold3-ip] [--sysroot <path>]
+#   scripts/extend_sysroot_from_device.sh [manifold3-ip] [--sysroot <path>] [--no-verify]
 #
 # Examples:
 #   scripts/extend_sysroot_from_device.sh                # 192.168.42.120, $MANIFOLD3_SYSROOT or ./sysroot
 #   scripts/extend_sysroot_from_device.sh 10.0.0.5
 #   scripts/extend_sysroot_from_device.sh --sysroot /opt/m3-sysroot
+#   scripts/extend_sysroot_from_device.sh --no-verify    # skip final checker (host tests only)
 
 set -euo pipefail
 
@@ -23,35 +27,79 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SSH_KEY="${REPO_ROOT}/config/manifold3_id_rsa"
 SSH_OPTS=(-i "${SSH_KEY}" -o StrictHostKeyChecking=no -o ConnectTimeout=10)
 
+usage() {
+    echo "usage: $0 [manifold3-ip] [--sysroot <path>] [--no-verify]" >&2
+    echo "  --sysroot <path>  sysroot to extend (default: \$MANIFOLD3_SYSROOT or ./sysroot)" >&2
+    echo "  --no-verify       skip the final check_inference_sysroot.sh run (tests only)" >&2
+}
+
 TARGET_IP="192.168.42.120"
 SYSROOT="${MANIFOLD3_SYSROOT:-${REPO_ROOT}/sysroot}"
+NO_VERIFY=0
+positional_count=0
 
 while [ $# -gt 0 ]; do
     case "$1" in
         --sysroot)
+            if [ $# -lt 2 ]; then
+                usage
+                exit 2
+            fi
             SYSROOT="$2"
             shift 2
             ;;
+        --no-verify)
+            NO_VERIFY=1
+            shift
+            ;;
         -*)
-            echo "usage: $0 [manifold3-ip] [--sysroot <path>]" >&2
+            usage
             exit 2
             ;;
         *)
+            positional_count=$((positional_count + 1))
+            if [ "${positional_count}" -gt 1 ]; then
+                usage
+                exit 2
+            fi
             TARGET_IP="$1"
             shift
             ;;
     esac
 done
 
-# Device package versions this extension is built against (documented in
-# docs/build-environment.md "Device packages (recorded 2026-07-31)").
+# The script copies INTO the sysroot, so create it when missing and
+# normalize it to an absolute path for unambiguous messages and downstream
+# use.
+mkdir -p "${SYSROOT}"
+SYSROOT="$(realpath "${SYSROOT}")"
+
+if [ ! -f "${SSH_KEY}" ]; then
+    echo "ERROR: SSH key not found: ${SSH_KEY}" >&2
+    echo "  Restore config/manifold3_id_rsa (see AGENTS.md)." >&2
+    exit 1
+fi
+
+# Exact device package versions this extension is built against (documented
+# in docs/build-environment.md "Device packages (recorded 2026-07-31)").
+# Every package is queried by exact name and the installed version must
+# match exactly; a missing package or a version difference aborts before
+# any file is copied.
 EXPECTED_PACKAGES=(
-    "libnvinfer-dev 8.5.2-1+cuda11.4"
-    "libnvonnxparsers8 8.5.2-1+cuda11.4"
-    "libcudart 11.4.298-1"
-    "libcudla 11.4.298-1"
-    "libcublas 11.6.6.84-1"
+    "cuda-cudart-11-4 11.4.298-1"
+    "cuda-cudart-dev-11-4 11.4.298-1"
+    "libcudla-11-4 11.4.298-1"
+    "libcudla-dev-11-4 11.4.298-1"
+    "libcublas-11-4 11.6.6.84-1"
+    "libcublas-dev-11-4 11.6.6.84-1"
     "libcudnn8 8.6.0.166-1+cuda11.4"
+    "libcudnn8-dev 8.6.0.166-1+cuda11.4"
+    "libnvinfer8 8.5.2-1+cuda11.4"
+    "libnvinfer-dev 8.5.2-1+cuda11.4"
+    "libnvinfer-plugin8 8.5.2-1+cuda11.4"
+    "libnvinfer-plugin-dev 8.5.2-1+cuda11.4"
+    "libnvonnxparsers8 8.5.2-1+cuda11.4"
+    "libnvonnxparsers-dev 8.5.2-1+cuda11.4"
 )
 
 # Symlink layouts to restore after scp (matches the device exactly). Keys are
@@ -86,24 +134,23 @@ if ! ssh_cmd "echo reachable" >/dev/null 2>&1; then
 fi
 
 echo "Verifying device package versions ..."
-version_mismatch=0
 for spec in "${EXPECTED_PACKAGES[@]}"; do
     pkg="${spec%% *}"
     ver="${spec#* }"
-    # Match a package whose name starts with the expected name (covers
-    # cuda-cudart-11-4 vs cuda-cudart-dev-11-4 and -dev variants). Each
-    # matching package prints one version line; empty-version rows (e.g.
-    # libcudla.so.1 alternatives rows) are dropped and the rest must agree.
-    actual=$(ssh_cmd "dpkg-query -W -f='\${Version}\n' '${pkg}*' 2>/dev/null" | tr -d "'" | grep -v '^$' | sort -u | head -1)
-    if [ -n "${actual}" ] && [ "${actual}" != "${ver}" ]; then
-        echo "WARNING: ${pkg} version ${actual} != expected ${ver}" >&2
-        version_mismatch=1
+    # Query the exact package name; dpkg-query exits non-zero when the
+    # package is not installed. The `if` guards the failure explicitly so
+    # `set -e` cannot abort with an unhelpful trace.
+    if actual=$(ssh_cmd "dpkg-query -W -f='\${Version}' '${pkg}'"); then
+        if [ "${actual}" != "${ver}" ]; then
+            echo "ERROR: ${pkg} version ${actual} != expected ${ver}" >&2
+            exit 1
+        fi
+    else
+        echo "ERROR: package ${pkg} missing on device ${TARGET_IP}" >&2
+        exit 1
     fi
+    echo "OK: ${pkg} ${actual}"
 done
-if [ "${version_mismatch}" -eq 1 ]; then
-    echo "WARNING: device package versions differ from the documented baseline;" >&2
-    echo "  the copied files may not match docs/build-environment.md." >&2
-fi
 
 # --- Copy TensorRT headers ---
 echo "Copying TensorRT headers ..."
@@ -161,6 +208,8 @@ if [ -e "${SYSROOT}/usr/lib/aarch64-linux-gnu/libcudnn.so" ]; then
 fi
 
 # --- Verify ---
-echo "Verifying sysroot extension ..."
-bash "${REPO_ROOT}/scripts/check_inference_sysroot.sh"
+if [ "${NO_VERIFY}" -eq 0 ]; then
+    echo "Verifying sysroot extension ..."
+    bash "${REPO_ROOT}/scripts/check_inference_sysroot.sh"
+fi
 echo "DONE: sysroot extension applied to ${SYSROOT}"

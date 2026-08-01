@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+# Fake ssh for host tests of scripts/extend_sysroot_from_device.sh.
+#
+# Records every invocation (prefixed with "SSH:") to $FAKE_SSH_LOG, and
+# answers `dpkg-query -W -f='${Version}' <pkg>` calls from
+# $FAKE_PKG_QUERY_FILE (one "package version" pair per line). Packages
+# listed in the space-separated $FAKE_MISSING_PKGS make dpkg-query exit 1,
+# like a package that is not installed. Any other command (e.g. the
+# "echo reachable" reachability probe) succeeds silently.
+set -euo pipefail
+
+: "${FAKE_SSH_LOG:?FAKE_SSH_LOG must be set}"
+: "${FAKE_PKG_QUERY_FILE:?FAKE_PKG_QUERY_FILE must be set}"
+
+printf 'SSH: %s\n' "$*" >>"${FAKE_SSH_LOG}"
+
+# The whole remote command arrives as a single argument, e.g.
+#   dpkg-query -W -f='${Version}' 'libnvinfer-dev'
+last_arg="${@: -1}"
+case "${last_arg}" in
+    dpkg-query*)
+        # Word-split the command to reach the quoted package name as the
+        # final token, then strip the surrounding single quotes.
+        # shellcheck disable=SC2086
+        set -- ${last_arg}
+        pkg="${@: -1}"
+        pkg="${pkg//\'/}"
+        if [[ " ${FAKE_MISSING_PKGS:-} " == *" ${pkg} "* ]]; then
+            exit 1
+        fi
+        ver="$(awk -v p="${pkg}" '$1 == p { print $2 }' "${FAKE_PKG_QUERY_FILE}")"
+        if [ -z "${ver}" ]; then
+            echo "fake_ssh: no fixture version for ${pkg}" >&2
+            exit 1
+        fi
+        printf '%s' "${ver}"
+        ;;
+esac
+exit 0

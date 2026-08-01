@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# Fake scp for host tests of scripts/extend_sysroot_from_device.sh.
+# Records every invocation (prefixed with "SCP:") to $FAKE_SCP_LOG and
+# exits 0 without transferring anything.
+set -euo pipefail
+
+: "${FAKE_SCP_LOG:?FAKE_SCP_LOG must be set}"
+
+printf 'SCP: %s\n' "$*" >>"${FAKE_SCP_LOG}"
+exit 0
