@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""Generates a dummy ONNX model with YOLO11-seg output shapes.
+"""Generates a synthetic three-output ONNX test model for the device pipeline.
 
 The network is a single Conv that downsamples the 1280x1280 input to 160x160
-feature maps and produces the three YOLO11-seg outputs with correct shapes but
-deterministic garbage values. Used to validate the inference pipeline before a
-real model is available.
+feature maps and produces three outputs with the dummy contract shapes but
+deterministic garbage values. This is a synthetic test contract for the device
+pipeline, not a real YOLO11-seg model; the real-model ABI is defined in the
+Phase B plan.
 """
 import argparse
 
@@ -18,7 +19,7 @@ K_NUM_CLASSES = K_NUM_SPECIES + K_NUM_AGE_BINS  # 7
 K_NUM_MASK_COEFFS = 32
 K_INPUT_SIZE = 1280
 K_FEAT = 160  # 1280 / 8
-K_ANCHORS = 160 * 160  # 33600 for one stride; keep single-stride for the dummy
+K_ANCHORS = 160 * 160  # 25600, single-stride 160x160 grid (real model concatenates 3 strides into 33600)
 K_PROTO = 32
 
 K_CLS_CHANNELS = 4 + K_NUM_CLASSES + K_NUM_MASK_COEFFS  # 43

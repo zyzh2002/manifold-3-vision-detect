@@ -383,6 +383,14 @@ bash scripts/check_inference_sysroot.sh
 # Expected: PASS: inference sysroot extension present
 ```
 
+The checker itself reports a single final line. When the extension is applied through
+`scripts/extend_sysroot_from_device.sh`, the final output is two lines:
+
+```text
+PASS: inference sysroot extension present   (from the checker)
+DONE: sysroot extension applied to <abs sysroot>
+```
+
 The sysroot under check is resolved with the priority `--sysroot <path>` > `$MANIFOLD3_SYSROOT` >
 `<repo>/sysroot`:
 
@@ -466,6 +474,9 @@ The checks must establish that:
 - the ELF architecture is AArch64;
 - no host x86_64 path or library was linked;
 - required `GLIBC_*` and `GLIBCXX_*` versions are available on the target;
+- the CXX dependency set includes `libm.so.6`: the Phase 5 sysroot ships the device-derived
+  `libstdc++.so.6`, whose own `DT_NEEDED` includes `libm.so.6`, and the linker propagates that
+  inherited dependency into every C++ binary (see `tests/toolchain/verify_elf.cmake`);
 - CUDA and TensorRT SONAMEs match the target firmware;
 - no unintended absolute RPATH or RUNPATH is present;
 - the program starts both during direct deployment and from the DPK application environment.

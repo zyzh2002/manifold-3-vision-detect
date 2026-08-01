@@ -4,7 +4,7 @@
 
 **Goal:** Run continuous TensorRT inference on Manifold 3 over the Phase 4 NV12 capture stream, producing structured detections with bounded memory.
 
-**Architecture:** `src/inference/` owns engine loading (TensorRT 8.5.2, cross-compile only), CPU preprocessing (NV12->RGB->1280x1280->NCHW), and YOLO-style postprocessing (threshold + NMS + RLE mask). `src/app/main.cpp` connects capture -> inference and prints per-second latency/throughput stats. A dummy ONNX with real YOLO11-seg output shapes validates the pipeline before any real model exists.
+**Architecture:** `src/inference/` owns engine loading (TensorRT 8.5.2, cross-compile only), CPU preprocessing (NV12->RGB->1280x1280->NCHW), and YOLO-style postprocessing (threshold + NMS + RLE mask). `src/app/main.cpp` connects capture -> inference and prints per-second latency/throughput stats. A dummy ONNX with a synthetic three-output test contract validates the pipeline before any real model exists.
 
 **Tech Stack:** C++17, TensorRT 8.5.2 (C API runtime), CUDA 11.4, Python 3 + onnx (dummy model generation), CMake cross preset.
 
@@ -37,7 +37,7 @@
 When device access is re-allowed, run on the device:
 
 ```bash
-dpkg -l | grep -E "libnvinfer-dev|libnvonnxparser|nvidia-cuda|cudart" 
+dpkg -l | grep -E "libnvinfer-dev|libnvonnxparser|nvidia-cuda|cudart"
 ```
 
 Expected: `libnvinfer-dev 8.5.2-1+cuda11.4` (arm64) and the corresponding CUDA runtime dev packages (observed in Phase 4; record exact names/versions in the doc).
@@ -113,7 +113,9 @@ git commit -m "feat: extend sysroot with CUDA/TensorRT dev files for phase 5"
 - Create: `scripts/generate_dummy_onnx.py`
 
 **Interfaces:**
-- Produces: `build/dummy_yolo11_seg.onnx` with the real YOLO11-seg output shapes at 1280x1280 input: `output0 [1, 4+7+32, 25600]` (=43 channels), `output1 [1, 32, 25600]`, `output2 [1, 32, 160, 160]`. This lets Tasks 3-5 develop against the exact postprocessing shapes before a real model exists. Constants used by Task 4/5: `kInputSize=1280`, `kNumSpecies=2`, `kNumAgeBins=5`, `kNumClasses=7` (=species+age), `kNumMaskCoeffs=32`, `kNumAnchors=25600` (single-stride 160x160 grid), `kMaskProtoH=160`, `kMaskProtoW=160`.
+- Produces: `build/dummy_yolo11_seg.onnx` with a synthetic three-output test contract at 1280x1280 input: `output0 [1, 4+7+32, 25600]` (=43 channels), `output1 [1, 32, 25600]`, `output2 [1, 32, 160, 160]`. This lets Tasks 3-5 develop against the full output layout before a real model exists. Constants used by Task 4/5: `kInputSize=1280`, `kNumSpecies=2`, `kNumAgeBins=5`, `kNumClasses=7` (=species+age), `kNumMaskCoeffs=32`, `kNumAnchors=25600` (single-stride 160x160 grid), `kMaskProtoH=160`, `kMaskProtoW=160`.
+
+Note: this dummy generator defines a synthetic three-output test contract; the real-model ABI (standard 2-output or custom) is defined in the Phase B plan, not here.
 
 - [ ] **Step 1: Write the generator script**
 

@@ -118,39 +118,51 @@ Receive one Matrice 4E visible-light stream and expose bounded, owned frames to 
 Infrared streaming, simultaneous streams, and source combinations are capability tests performed only after the
 single-stream path is stable.
 
-## Phase 5: TensorRT Inference
+## Phase 5: TensorRT Inference [IN PROGRESS]
 
-### Outcome
+### Phase 5A: Synthetic Device Pipeline [DONE]
 
-Feed the captured NV12 frames into a TensorRT 8.5.2 model and produce structured detection results continuously.
+- [x] CUDA/TensorRT/cuDNN sysroot extension (device-derived, scripted, staged)
+- [x] CPU NV12 preprocessing (1440x1080 -> 1280x1280 NCHW)
+- [x] Synthetic FP16 engine loading with by-name contract enforcement
+- [x] Synthetic single-frame inference smoke on Manifold 3
+- [x] Synthetic continuous pipeline validation (capture -> preprocess -> infer -> decode)
+- [x] Validated frame handoff with source/handoff drop accounting
+- [x] Provisional Detection schema (species/age/box/mask-RLE)
 
-### Work
-
-- [x] Add only the CUDA and TensorRT development packages required by the selected APIs.
-- [x] Define the model input, output, precision, and engine compatibility contract (in design spec; real-model validation pending).
-- [x] Implement preprocessing without custom `.cu` files initially.
-- [x] Load a target-compatible TensorRT engine.
-- [x] Run single-frame inference before enabling continuous inference.
-- [x] Measure end-to-end latency, inference time, throughput, memory use, and frame drops.
-- [x] Add postprocessing and a stable detection result interface.
-
-### Target Validation Record (Phase 5)
+### Target Validation Record (Phase 5A)
 
 - Continuous capture->preprocess->infer->postprocess runs on Manifold 3 at ~21 fps with avg inference latency
-  ~1.4 ms and p95 ~1.7 ms (dummy YOLO11-seg engine, 1280x1280 input, FP16).
+  ~1.4 ms and p95 ~1.7 ms (synthetic dummy engine, 1280x1280 input, FP16).
 - detections=0 is expected: the dummy engine emits random-weight outputs below the 0.25 confidence threshold.
 - RSS stable at ~630 MB over 5 min with slow ~0.5-1 MB/min creep attributed to driver/SDK lazy allocation; no
   application leak path identified.
 - Host unit tests (inference preprocess/postprocess) pass 2/2; cross build clean with full TensorRT closure
   (nvinfer, cudart, cublas, libcudnn.so.8, tegra rpath-link).
-- Real-model swap pending the trained YOLO11-seg model (separate PC-side training plan; spec Open Items:
+- Real-model validation pending the trained YOLO11-seg model (separate PC-side training plan; spec Open Items:
   species list, dataset size).
+
+The ~21 fps and ~1.4 ms latency figures above were measured with the synthetic dummy engine only and do not
+predict real-model performance. detections=0 in the synthetic run does not validate detection correctness.
+The hardened metrics now report per-window preprocess/engine/postprocess/end-to-end stages.
+
+### Phase 5B: Real Model [PENDING]
+
+- [ ] Freeze the real YOLO11-seg model ABI (standard 2-output or custom multi-task contract)
+- [ ] Match PC and device preprocessing (resize, padding, color convention)
+- [ ] Implement inverse-letterbox geometry for boxes
+- [ ] Implement source-frame instance masks (crop, upscale, unpad)
+- [ ] Compare TensorRT outputs numerically against ONNX Runtime
+- [ ] Measure real-model latency, throughput, memory, and drops
 
 ### Exit Criteria
 
 - Continuous inference runs on Manifold 3 with bounded memory.
 - The result schema is independent of PSDK callback internals.
 - Performance measurements identify whether additional acceleration work is justified.
+
+The exit criteria above remain the Phase 5 exit criteria; the Phase 5B real-model ABI, geometry, and mask
+items must be satisfied before the phase can be marked DONE.
 
 ## Phase 6: Product Output and Packaging
 

@@ -113,12 +113,15 @@ Module boundaries:
 
 ## Development Order (model training runs in parallel with code)
 
-1. Build a dummy ONNX (fixed 1280x1280 shape) and validate the inference pipeline
-   end to end on the device; this unblocks `src/inference/` without a real model.
-2. When the real model is ready: convert with `trtexec`, swap the engine, verify
-   detection outputs against PC-side onnxruntime results.
+1. Build a dummy ONNX (fixed 1280x1280 shape) with a synthetic three-output test
+   contract and validate the inference pipeline end to end on the device; this
+   unblocks `src/inference/` without a real model. The current device pipeline
+   implements this synthetic contract only; the real-model contract is pending.
+2. Plan B (separate branch, pending the trained model): freeze the real-model ABI
+   (standard 2-output or custom multi-task contract), convert with `trtexec`, and
+   verify detection outputs against PC-side onnxruntime results.
 3. Continuous inference measurement: latency, throughput, memory, frame drops.
-4. Record results in `docs/plan.md` Phase 5 target validation record.
+4. Record results in `docs/plan.md` Phase 5A target validation record.
 
 ## Regression Upgrade Path
 
