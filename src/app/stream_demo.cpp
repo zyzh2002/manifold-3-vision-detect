@@ -1,12 +1,12 @@
 // Liveview demo for customer demonstration.
 //
 // Serves the Manifold 3 NV12 liveview stream as MJPEG over HTTP:
-// open http://192.168.42.120:8080/ in a browser (F11 for fullscreen).
+// open http://192.168.42.120:8081/ in a browser (F11 for fullscreen).
 // Prints one per-second statistics line to stdout. Throwaway demo binary:
 // it does not load any inference engine.
 //
 // Usage (on the device, or via ssh):
-//   ./stream_demo [--port=8080] [--quality=80] [--max-fps=25] [--scale=1.0]
+//   ./stream_demo [--port=8081] [--quality=80] [--max-fps=25] [--scale=1.0]
 
 #include <chrono>
 #include <csignal>
@@ -49,7 +49,7 @@ int main(int argc, char **argv) {
     std::signal(SIGINT, OnStopSignal);
     std::signal(SIGTERM, OnStopSignal);
 
-    uint16_t port = 8080;
+    uint16_t port = 8081; // device port 8080 is taken
     int quality = 80;
     uint32_t maxFps = 25;
     double scale = 1.0;

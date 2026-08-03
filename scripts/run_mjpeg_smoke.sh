@@ -37,13 +37,13 @@ ssh "${SSH_OPTS[@]}" "dji@${TARGET_IP}" "chmod +x ${REMOTE_BIN}"
 # SIGTERM the executing shell itself.
 ssh "${SSH_OPTS[@]}" "dji@${TARGET_IP}" "pkill -f '[s]tream_demo' 2>/dev/null || true"
 ssh "${SSH_OPTS[@]}" "dji@${TARGET_IP}" \
-  "sleep 1; nohup ${REMOTE_BIN} --port=8080 >/tmp/stream_demo.log 2>&1 & sleep 4"
+  "sleep 1; nohup ${REMOTE_BIN} --port=8081 >/tmp/stream_demo.log 2>&1 & sleep 4"
 
 # Pull 1 MB of the stream from the host over the same path the browser uses
 # (the device has no curl on JetPack 5.1.3). head -c terminates the pipeline
 # early; curl then exits non-zero on the write error, so swallow that
 # expected pipeline failure. --noproxy '*' bypasses any host HTTP proxy env.
-curl -sN --noproxy '*' --max-time 5 "http://${TARGET_IP}:8080/" | head -c 1048576 \
+curl -sN --noproxy '*' --max-time 5 "http://${TARGET_IP}:8081/" | head -c 1048576 \
   > /tmp/stream_demo_capture.bin || true
 
 grep -q -- "--frame" <(head -c 200 /tmp/stream_demo_capture.bin) || {

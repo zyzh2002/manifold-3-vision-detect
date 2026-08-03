@@ -137,6 +137,19 @@ StreamerStats MjpegStreamer::GetStats() const {
 void MjpegStreamer::AcceptClient(int fd) {
     SetNonBlocking(fd);
     SetSendTimeout(fd, kSendTimeoutMs);
+    // The HTTP response must precede the first multipart part, otherwise
+    // clients (browsers, curl) cannot parse the stream and wait forever.
+    std::vector<uint8_t> headers;
+    AppendHttpHeaders(&headers);
+    ssize_t sent = 0;
+    while (sent < static_cast<ssize_t>(headers.size())) {
+        const ssize_t n = send(fd, headers.data() + sent, headers.size() - sent, MSG_NOSIGNAL);
+        if (n <= 0) {
+            close(fd);
+            return;
+        }
+        sent += n;
+    }
     std::lock_guard<std::mutex> lock(mutex_);
     clients_.push_back(fd);
     ++stats_.clients_served;
@@ -174,11 +187,17 @@ void MjpegStreamer::WorkerLoop() {
             }
         }
         // Sleep until the next frame is due (or until client I/O wakes us).
+        // When the deadline is already past (slow frame), poll with timeout 0:
+        // a full kPollTimeoutMs stall per cycle would collapse the frame rate
+        // to ~1/kPollTimeoutMs once frames take longer than the interval.
         const auto pollDeadline = std::chrono::steady_clock::now();
         int pollTimeoutMs = kPollTimeoutMs;
         if (nextFrameDue > pollDeadline) {
-            const auto untilDue = std::chrono::duration_cast<std::chrono::milliseconds>(nextFrameDue - pollDeadline);
+            const auto untilDue = std::chrono::duration_cast<std::chrono::milliseconds>(
+                nextFrameDue - pollDeadline);
             pollTimeoutMs = std::min(kPollTimeoutMs, static_cast<int>(untilDue.count()));
+        } else {
+            pollTimeoutMs = 0;
         }
         const int pollResult = poll(pollfds.data(), pollfds.size(), pollTimeoutMs);
         if (pollResult > 0 && (pollfds[0].revents & (POLLIN | POLLERR | POLLHUP))) {

@@ -26,8 +26,8 @@ ssh -i config/manifold3_id_rsa -o StrictHostKeyChecking=no dji@192.168.42.120 \
   "cd ~/vision-detect && ./stream_demo"
 ```
 
-效果：设备在 8080 端口提供 MJPEG 流。开发主机浏览器打开
-`http://192.168.42.120:8080/`，F11 全屏观看（1440x1080 全彩，约 25 fps）。
+效果：设备在 8081 端口提供 MJPEG 流。开发主机浏览器打开
+`http://192.168.42.120:8081/`，F11 全屏观看（1440x1080 全彩，约 25 fps）。
 SSH 会话每秒一行统计：
 `fps / size / source_drop / handoff_drop / invalid / enc_frames / enc_fail / clients / avg_encode_ms / avg_interval_ms / rss_kb`
 
@@ -37,7 +37,7 @@ SSH 会话每秒一行统计：
 
 | 参数 | 说明 |
 |---|---|
-| `--port=8080` | 推流端口（默认 8080） |
+| `--port=8081` | 推流端口（默认 8081；设备 8080 被系统服务占用） |
 | `--quality=80` | JPEG 质量 1..100（默认 80） |
 | `--max-fps=25` | 最大帧率 1..60（默认 25） |
 | `--scale=0.89` | 输出缩放（默认 1.0；0.89 输出约 1280x960） |
@@ -54,7 +54,7 @@ ssh -i config/manifold3_id_rsa -o StrictHostKeyChecking=no dji@192.168.42.120 \
 | 现象 | 原因与处理 |
 |---|---|
 | 浏览器画面卡住/空白 | 等 1-2 秒自动恢复（MJPEG 丢帧后浏览器等待下一帧）；确认飞机在线 |
-| 启动报 "bind failed on port 8080" | 端口被占用，换 `--port=8081` 或检查残留进程 |
+| 启动报 "bind failed on port 8081" | 端口被占用，检查残留进程或换其他端口 |
 | 提示 "Address already in use"（PSDK） | Smart3DExplore 未停干净，重跑第 1 步 |
 | "PSDK credentials not configured" | 凭据未注入，先运行 `scripts/configure_cross_with_credentials.sh` 再重新构建部署 |
 | 统计行 fps=0 持续 | 飞机/Pilot 不在线，确认无人机开机并连接 Pilot |
