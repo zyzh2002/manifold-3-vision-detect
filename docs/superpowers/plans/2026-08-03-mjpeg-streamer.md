@@ -1173,12 +1173,12 @@ ssh "${SSH_OPTS[@]}" "dji@${TARGET_IP}" "pkill -f '[s]tream_demo' 2>/dev/null ||
 ssh "${SSH_OPTS[@]}" "dji@${TARGET_IP}" \
   "sleep 1; nohup ${REMOTE_BIN} --port=8080 >/tmp/stream_demo.log 2>&1 & sleep 4"
 
-# Pull 1 MB of the stream straight to a local file. The remote pipeline runs
-# via a single-quoted literal (no local expansion, no nested quoting): the
-# earlier \"...\" form made the remote sh -c receive literal quote chars.
-ssh "${SSH_OPTS[@]}" "dji@${TARGET_IP}" \
-  'curl -sN --max-time 5 http://127.0.0.1:8080/ | head -c 1048576' \
-  > /tmp/stream_demo_capture.bin
+# Pull 1 MB of the stream from the host over the same path the browser uses
+# (the device has no curl on JetPack 5.1.3). head -c terminates the pipeline
+# early; curl then exits non-zero on the write error, so swallow that
+# expected pipeline failure.
+curl -sN --max-time 5 "http://${TARGET_IP}:8080/" | head -c 1048576 \
+  > /tmp/stream_demo_capture.bin || true
 
 grep -q -- "--frame" <(head -c 200 /tmp/stream_demo_capture.bin) || {
     echo "FAIL: multipart boundary not found"; exit 1; }
