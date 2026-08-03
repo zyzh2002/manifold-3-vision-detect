@@ -997,19 +997,20 @@ int main(int argc, char **argv) {
     uint64_t waitedFrames = 0;
     auto lastStatsPrint = std::chrono::steady_clock::now();
     while (!g_stopRequested) {
-        manifold3::capture::OwnedNv12Frame frame;
-        if (capture.WaitTake(&frame, std::chrono::milliseconds(100))) {
-            ++waitedFrames;
-        }
+        // The stats loop must NOT WaitTake: the streamer thread is the sole
+        // frame consumer, and a competing WaitTake would steal frames and
+        // halve the stream rate. Sleep instead and poll the counters.
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
         const auto now = std::chrono::steady_clock::now();
         if (now - lastStatsPrint >= std::chrono::seconds(1)) {
             const manifold3::LiveviewCapture::Stats s = capture.GetStats();
             const manifold3::stream::StreamerStats st = streamer.GetStats();
-            const double seconds = std::chrono::duration<double>(now - lastStatsPrint).count();
+            const double fps = st.avg_frame_interval_ms > 0.0 ? 1000.0 / st.avg_frame_interval_ms
+                                                              : 0.0;
             std::printf("[stats] fps=%.1f size=%ux%u source_drop=%llu handoff_drop=%llu "
                         "invalid=%llu enc_frames=%llu enc_fail=%llu clients=%u "
                         "avg_encode_ms=%.2f avg_interval_ms=%.2f rss_kb=%ld\n",
-                        static_cast<double>(waitedFrames) / seconds, frame.width, frame.height,
+                        fps, s.width, s.height,
                         static_cast<unsigned long long>(s.source_dropped_frames),
                         static_cast<unsigned long long>(s.handoff_dropped_frames),
                         static_cast<unsigned long long>(s.invalid_frames),
@@ -1019,7 +1020,6 @@ int main(int argc, char **argv) {
                         ReadRssKb());
             std::fflush(stdout);
             lastStatsPrint = now;
-            waitedFrames = 0;
         }
     }
 
