@@ -1159,6 +1159,7 @@ trap cleanup EXIT INT TERM
 
 if [ "${DO_BUILD}" = true ]; then
     source "${REPO_ROOT}/scripts/setup_env.sh"
+    "${REPO_ROOT}/scripts/configure_cross_with_credentials.sh"
     cmake --build "${REPO_ROOT}/build-cross" --target stream_demo -j"$(nproc)"
 fi
 
@@ -1176,8 +1177,8 @@ ssh "${SSH_OPTS[@]}" "dji@${TARGET_IP}" \
 # Pull 1 MB of the stream from the host over the same path the browser uses
 # (the device has no curl on JetPack 5.1.3). head -c terminates the pipeline
 # early; curl then exits non-zero on the write error, so swallow that
-# expected pipeline failure.
-curl -sN --max-time 5 "http://${TARGET_IP}:8080/" | head -c 1048576 \
+# expected pipeline failure. --noproxy '*' bypasses any host HTTP proxy env.
+curl -sN --noproxy '*' --max-time 5 "http://${TARGET_IP}:8080/" | head -c 1048576 \
   > /tmp/stream_demo_capture.bin || true
 
 grep -q -- "--frame" <(head -c 200 /tmp/stream_demo_capture.bin) || {
