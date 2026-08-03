@@ -83,7 +83,9 @@ bool MjpegStreamer::Start(uint16_t port, int quality, uint32_t max_fps, double s
     port_ = ntohs(bound.sin_port);
     quality_ = quality < 1 ? 1 : (quality > 100 ? 100 : quality);
     max_fps_ = max_fps == 0 ? 1 : max_fps;
-    scale_ = scale <= 0.0 ? 1.0 : scale;
+    // Clamp scale to the downscale-only contract: an out-of-range value would
+    // reach DownscaleRgb24's division-by-zero path (bw/bh = 0 when upscaling).
+    scale_ = (scale <= 0.0 || scale > 1.0) ? 1.0 : scale;
     provider_ = std::move(provider);
     stop_requested_ = false;
     running_ = true;
@@ -215,6 +217,12 @@ void MjpegStreamer::WorkerLoop() {
         capture::OwnedNv12Frame frame;
         if (!provider_(&frame)) {
             break;
+        }
+        // The provider may hand over a default-constructed frame (timeout
+        // without data). Skipping it keeps DownscaleRgb24's divide-by-zero
+        // path unreachable; the browser simply holds the last frame.
+        if (frame.width == 0 || frame.height == 0) {
+            continue;
         }
         const auto frameNow = std::chrono::steady_clock::now();
         frameIntervalUs += std::chrono::duration_cast<std::chrono::microseconds>(frameNow - lastFrameAt).count();
