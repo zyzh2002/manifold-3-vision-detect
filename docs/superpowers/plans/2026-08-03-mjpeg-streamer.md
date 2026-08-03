@@ -1148,13 +1148,14 @@ TARGET_IP="$1"
 DO_BUILD=true
 [ "${2:-}" = "--no-build" ] && DO_BUILD=false
 
-# Stop any leftover demo on every exit path. The bracket pattern keeps the
-# pkill from matching this shell's own cmdline (sshd runs the command via
-# sh -c, and a plain "pkill -f stream_demo" would SIGTERM the shell itself).
+# Stop any leftover demo on every exit path. The pkill runs in its OWN ssh
+# session: sshd executes commands via sh -c, and any command whose text
+# contains a plain "stream_demo" (e.g. the binary path or the log path)
+# would be matched by the pattern and SIGTERMed before nohup could start.
 cleanup() {
-    ssh "${SSH_OPTS[@]}" "dji@${TARGET_IP}" "pkill -f '[s]tream_demo' 2>/dev/null || true"
+    ssh "${SSH_OPTS[@]}" "dji@${TARGET_IP}" "pkill -f '[s]tream_demo' 2>/dev/null || true" || true
 }
-trap cleanup EXIT
+trap cleanup EXIT INT TERM
 
 if [ "${DO_BUILD}" = true ]; then
     source "${REPO_ROOT}/scripts/setup_env.sh"
@@ -1164,9 +1165,13 @@ fi
 scp "${SSH_OPTS[@]}" "${REPO_ROOT}/build-cross/src/app/stream_demo" "dji@${TARGET_IP}:${REMOTE_BIN}"
 ssh "${SSH_OPTS[@]}" "dji@${TARGET_IP}" "chmod +x ${REMOTE_BIN}"
 
-# Start the demo, capture a few seconds of stream, then stop it.
+# Stop any previous demo instance in its own session, then start the demo in
+# a separate session. Never combine the two: the start command's text embeds
+# the plain binary/log names, which a pkill pattern would match and use to
+# SIGTERM the executing shell itself.
+ssh "${SSH_OPTS[@]}" "dji@${TARGET_IP}" "pkill -f '[s]tream_demo' 2>/dev/null || true"
 ssh "${SSH_OPTS[@]}" "dji@${TARGET_IP}" \
-  "pkill -f '[s]tream_demo' 2>/dev/null; sleep 1; nohup ${REMOTE_BIN} --port=8080 >/tmp/stream_demo.log 2>&1 & sleep 4"
+  "sleep 1; nohup ${REMOTE_BIN} --port=8080 >/tmp/stream_demo.log 2>&1 & sleep 4"
 
 # Pull 1 MB of the stream and validate multipart + JPEG magic.
 BYTES="$(ssh "${SSH_OPTS[@]}" "dji@${TARGET_IP}" \
@@ -1213,7 +1218,9 @@ Create `docs/stream-demo-guide.md` (replaces `docs/capture-demo-guide.md`; conte
 
 ```bash
 ssh -i config/manifold3_id_rsa -o StrictHostKeyChecking=no dji@192.168.42.120 \
-  "dji_app_ctl stop Smart3DExplore; pkill -f '[S]mart3DExplore' 2>/dev/null; sleep 1"
+  "dji_app_ctl stop Smart3DExplore 2>/dev/null || true"
+ssh -i config/manifold3_id_rsa -o StrictHostKeyChecking=no dji@192.168.42.120 \
+  "pkill -f '[S]mart3DExplore' 2>/dev/null || true; sleep 1"
 ```
 
 > 若 `dji_app_ctl stop` 报错 257 属正常，`pkill` 兜底会生效。
