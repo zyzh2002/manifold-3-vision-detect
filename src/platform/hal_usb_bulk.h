@@ -28,16 +28,16 @@
 #define HAL_USB_BULK_H
 
 /* Includes ------------------------------------------------------------------*/
-#include "stdint.h"
-#include <stdio.h>
-#include <unistd.h>
+#include <arpa/inet.h>
 #include <fcntl.h>
-#include <termios.h>
-#include <unistd.h>
+#include <netinet/in.h>
+#include <stdio.h>
 #include <string.h>
 #include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
+#include <termios.h>
+#include <unistd.h>
+
+#include "stdint.h"
 
 #ifdef LIBUSB_INSTALLED
 
@@ -53,26 +53,26 @@ extern "C" {
 
 /* Exported constants --------------------------------------------------------*/
 
-#define LINUX_USB_BULK1_EP_IN_FD                "/dev/usb-ffs/bulk2/ep2"
-#define LINUX_USB_BULK1_EP_OUT_FD               "/dev/usb-ffs/bulk2/ep1"
+#define LINUX_USB_BULK1_EP_IN_FD "/dev/usb-ffs/bulk2/ep2"
+#define LINUX_USB_BULK1_EP_OUT_FD "/dev/usb-ffs/bulk2/ep1"
 
-#define LINUX_USB_BULK1_INTERFACE_NUM           (2)
-#define LINUX_USB_BULK1_END_POINT_IN            (0x83)
-#define LINUX_USB_BULK1_END_POINT_OUT           (0x02)
+#define LINUX_USB_BULK1_INTERFACE_NUM (2)
+#define LINUX_USB_BULK1_END_POINT_IN (0x83)
+#define LINUX_USB_BULK1_END_POINT_OUT (0x02)
 
-#define LINUX_USB_BULK2_EP_IN_FD                "/dev/usb-ffs/bulk6/ep2"
-#define LINUX_USB_BULK2_EP_OUT_FD               "/dev/usb-ffs/bulk6/ep1"
+#define LINUX_USB_BULK2_EP_IN_FD "/dev/usb-ffs/bulk6/ep2"
+#define LINUX_USB_BULK2_EP_OUT_FD "/dev/usb-ffs/bulk6/ep1"
 
-#define LINUX_USB_BULK2_INTERFACE_NUM           (6)
-#define LINUX_USB_BULK2_END_POINT_IN            (0x87)
-#define LINUX_USB_BULK2_END_POINT_OUT           (0x06)
+#define LINUX_USB_BULK2_INTERFACE_NUM (6)
+#define LINUX_USB_BULK2_END_POINT_IN (0x87)
+#define LINUX_USB_BULK2_END_POINT_OUT (0x06)
 
-#define LINUX_USB_BULK3_EP_IN_FD                "/dev/usb-ffs/bulk3/ep2"
-#define LINUX_USB_BULK3_EP_OUT_FD               "/dev/usb-ffs/bulk3/ep1"
+#define LINUX_USB_BULK3_EP_IN_FD "/dev/usb-ffs/bulk3/ep2"
+#define LINUX_USB_BULK3_EP_OUT_FD "/dev/usb-ffs/bulk3/ep1"
 
-#define LINUX_USB_BULK3_INTERFACE_NUM           (3)
-#define LINUX_USB_BULK3_END_POINT_IN            (0x84)
-#define LINUX_USB_BULK3_END_POINT_OUT           (0x03)
+#define LINUX_USB_BULK3_INTERFACE_NUM (3)
+#define LINUX_USB_BULK3_END_POINT_IN (0x84)
+#define LINUX_USB_BULK3_END_POINT_OUT (0x03)
 
 #define LINUX_USB_VID (0x2CA3)
 #define LINUX_USB_PID (0x3181)

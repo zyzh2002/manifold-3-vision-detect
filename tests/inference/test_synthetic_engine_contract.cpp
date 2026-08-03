@@ -13,10 +13,10 @@
 
 using manifold3::inference::DecodeSyntheticSeg;
 using manifold3::inference::Detection;
-using manifold3::inference::SyntheticOutputs;
 using manifold3::inference::kSyntheticMaskCoefficientChannels;
 using manifold3::inference::kSyntheticPrototypeHeight;
 using manifold3::inference::kSyntheticPrototypeWidth;
+using manifold3::inference::SyntheticOutputs;
 using manifold3::inference::test::DecodeRle;
 using manifold3::inference::test::MakeSyntheticOutputs;
 using manifold3::inference::test::PlaceAnchorBox;

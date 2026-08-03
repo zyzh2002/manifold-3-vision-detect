@@ -24,12 +24,14 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "hal_usb_bulk.h"
-#include "dji_logger.h"
+
 #include <errno.h>
 
+#include "dji_logger.h"
+
 /* Private constants ---------------------------------------------------------*/
-#define LINUX_USB_BULK_TRANSFER_TIMEOUT_MS    (50)
-#define LINUX_USB_BULK_TRANSFER_WAIT_FOREVER  (-1)
+#define LINUX_USB_BULK_TRANSFER_TIMEOUT_MS (50)
+#define LINUX_USB_BULK_TRANSFER_WAIT_FOREVER (-1)
 
 /* Private types -------------------------------------------------------------*/
 typedef struct {
@@ -49,8 +51,7 @@ typedef struct {
 /* Private functions declaration ---------------------------------------------*/
 
 /* Exported functions definition ---------------------------------------------*/
-T_DjiReturnCode HalUsbBulk_Init(T_DjiHalUsbBulkInfo usbBulkInfo, T_DjiUsbBulkHandle *usbBulkHandle)
-{
+T_DjiReturnCode HalUsbBulk_Init(T_DjiHalUsbBulkInfo usbBulkInfo, T_DjiUsbBulkHandle *usbBulkHandle) {
     int32_t ret;
     struct libusb_device_handle *handle = NULL;
 
@@ -79,42 +80,42 @@ T_DjiReturnCode HalUsbBulk_Init(T_DjiHalUsbBulkInfo usbBulkInfo, T_DjiUsbBulkHan
             return DJI_ERROR_SYSTEM_MODULE_CODE_SYSTEM_ERROR;
         }
 
-        ((T_HalUsbBulkObj *) *usbBulkHandle)->handle = handle;
-        memcpy(&((T_HalUsbBulkObj *) *usbBulkHandle)->usbBulkInfo, &usbBulkInfo, sizeof(usbBulkInfo));
+        ((T_HalUsbBulkObj *)*usbBulkHandle)->handle = handle;
+        memcpy(&((T_HalUsbBulkObj *)*usbBulkHandle)->usbBulkInfo, &usbBulkInfo, sizeof(usbBulkInfo));
 #endif
     } else {
-        ((T_HalUsbBulkObj *) *usbBulkHandle)->handle = handle;
-        memcpy(&((T_HalUsbBulkObj *) *usbBulkHandle)->usbBulkInfo, &usbBulkInfo, sizeof(usbBulkInfo));
-        ((T_HalUsbBulkObj *) *usbBulkHandle)->interfaceNum = usbBulkInfo.channelInfo.interfaceNum;
+        ((T_HalUsbBulkObj *)*usbBulkHandle)->handle = handle;
+        memcpy(&((T_HalUsbBulkObj *)*usbBulkHandle)->usbBulkInfo, &usbBulkInfo, sizeof(usbBulkInfo));
+        ((T_HalUsbBulkObj *)*usbBulkHandle)->interfaceNum = usbBulkInfo.channelInfo.interfaceNum;
 
         if (usbBulkInfo.channelInfo.interfaceNum == LINUX_USB_BULK1_INTERFACE_NUM) {
-            ((T_HalUsbBulkObj *) *usbBulkHandle)->ep1 = open(LINUX_USB_BULK1_EP_IN_FD, O_RDWR);
-            if (((T_HalUsbBulkObj *) *usbBulkHandle)->ep1 < 0) {
+            ((T_HalUsbBulkObj *)*usbBulkHandle)->ep1 = open(LINUX_USB_BULK1_EP_IN_FD, O_RDWR);
+            if (((T_HalUsbBulkObj *)*usbBulkHandle)->ep1 < 0) {
                 return DJI_ERROR_SYSTEM_MODULE_CODE_SYSTEM_ERROR;
             }
 
-            ((T_HalUsbBulkObj *) *usbBulkHandle)->ep2 = open(LINUX_USB_BULK1_EP_OUT_FD, O_RDWR);
-            if (((T_HalUsbBulkObj *) *usbBulkHandle)->ep2 < 0) {
+            ((T_HalUsbBulkObj *)*usbBulkHandle)->ep2 = open(LINUX_USB_BULK1_EP_OUT_FD, O_RDWR);
+            if (((T_HalUsbBulkObj *)*usbBulkHandle)->ep2 < 0) {
                 return DJI_ERROR_SYSTEM_MODULE_CODE_SYSTEM_ERROR;
             }
         } else if (usbBulkInfo.channelInfo.interfaceNum == LINUX_USB_BULK2_INTERFACE_NUM) {
-            ((T_HalUsbBulkObj *) *usbBulkHandle)->ep1 = open(LINUX_USB_BULK2_EP_IN_FD, O_RDWR);
-            if (((T_HalUsbBulkObj *) *usbBulkHandle)->ep1 < 0) {
+            ((T_HalUsbBulkObj *)*usbBulkHandle)->ep1 = open(LINUX_USB_BULK2_EP_IN_FD, O_RDWR);
+            if (((T_HalUsbBulkObj *)*usbBulkHandle)->ep1 < 0) {
                 return DJI_ERROR_SYSTEM_MODULE_CODE_SYSTEM_ERROR;
             }
 
-            ((T_HalUsbBulkObj *) *usbBulkHandle)->ep2 = open(LINUX_USB_BULK2_EP_OUT_FD, O_RDWR);
-            if (((T_HalUsbBulkObj *) *usbBulkHandle)->ep2 < 0) {
+            ((T_HalUsbBulkObj *)*usbBulkHandle)->ep2 = open(LINUX_USB_BULK2_EP_OUT_FD, O_RDWR);
+            if (((T_HalUsbBulkObj *)*usbBulkHandle)->ep2 < 0) {
                 return DJI_ERROR_SYSTEM_MODULE_CODE_SYSTEM_ERROR;
             }
         } else if (usbBulkInfo.channelInfo.interfaceNum == LINUX_USB_BULK3_INTERFACE_NUM) {
-            ((T_HalUsbBulkObj *) *usbBulkHandle)->ep1 = open(LINUX_USB_BULK3_EP_IN_FD, O_RDWR);
-            if (((T_HalUsbBulkObj *) *usbBulkHandle)->ep1 < 0) {
+            ((T_HalUsbBulkObj *)*usbBulkHandle)->ep1 = open(LINUX_USB_BULK3_EP_IN_FD, O_RDWR);
+            if (((T_HalUsbBulkObj *)*usbBulkHandle)->ep1 < 0) {
                 return DJI_ERROR_SYSTEM_MODULE_CODE_SYSTEM_ERROR;
             }
 
-            ((T_HalUsbBulkObj *) *usbBulkHandle)->ep2 = open(LINUX_USB_BULK3_EP_OUT_FD, O_RDWR);
-            if (((T_HalUsbBulkObj *) *usbBulkHandle)->ep2 < 0) {
+            ((T_HalUsbBulkObj *)*usbBulkHandle)->ep2 = open(LINUX_USB_BULK3_EP_OUT_FD, O_RDWR);
+            if (((T_HalUsbBulkObj *)*usbBulkHandle)->ep2 < 0) {
                 return DJI_ERROR_SYSTEM_MODULE_CODE_SYSTEM_ERROR;
             }
         }
@@ -123,8 +124,7 @@ T_DjiReturnCode HalUsbBulk_Init(T_DjiHalUsbBulkInfo usbBulkInfo, T_DjiUsbBulkHan
     return DJI_ERROR_SYSTEM_MODULE_CODE_SUCCESS;
 }
 
-T_DjiReturnCode HalUsbBulk_DeInit(T_DjiUsbBulkHandle usbBulkHandle)
-{
+T_DjiReturnCode HalUsbBulk_DeInit(T_DjiUsbBulkHandle usbBulkHandle) {
     struct libusb_device_handle *handle = NULL;
     T_DjiOsalHandler *osalHandler = DjiPlatform_GetOsalHandler();
 
@@ -132,17 +132,17 @@ T_DjiReturnCode HalUsbBulk_DeInit(T_DjiUsbBulkHandle usbBulkHandle)
         return DJI_ERROR_SYSTEM_MODULE_CODE_SYSTEM_ERROR;
     }
 
-    handle = ((T_HalUsbBulkObj *) usbBulkHandle)->handle;
+    handle = ((T_HalUsbBulkObj *)usbBulkHandle)->handle;
 
-    if (((T_HalUsbBulkObj *) usbBulkHandle)->usbBulkInfo.isUsbHost == true) {
+    if (((T_HalUsbBulkObj *)usbBulkHandle)->usbBulkInfo.isUsbHost == true) {
 #ifdef LIBUSB_INSTALLED
-        libusb_release_interface(handle, ((T_HalUsbBulkObj *) usbBulkHandle)->usbBulkInfo.channelInfo.interfaceNum);
+        libusb_release_interface(handle, ((T_HalUsbBulkObj *)usbBulkHandle)->usbBulkInfo.channelInfo.interfaceNum);
         osalHandler->TaskSleepMs(100);
         libusb_exit(NULL);
 #endif
     } else {
-        close(((T_HalUsbBulkObj *) usbBulkHandle)->ep1);
-        close(((T_HalUsbBulkObj *) usbBulkHandle)->ep2);
+        close(((T_HalUsbBulkObj *)usbBulkHandle)->ep1);
+        close(((T_HalUsbBulkObj *)usbBulkHandle)->ep2);
     }
 
     free(usbBulkHandle);
@@ -151,8 +151,7 @@ T_DjiReturnCode HalUsbBulk_DeInit(T_DjiUsbBulkHandle usbBulkHandle)
 }
 
 T_DjiReturnCode HalUsbBulk_WriteData(T_DjiUsbBulkHandle usbBulkHandle, const uint8_t *buf, uint32_t len,
-                                     uint32_t *realLen)
-{
+                                     uint32_t *realLen) {
     int32_t ret;
     int32_t actualLen;
     struct libusb_device_handle *handle = NULL;
@@ -161,12 +160,12 @@ T_DjiReturnCode HalUsbBulk_WriteData(T_DjiUsbBulkHandle usbBulkHandle, const uin
         return DJI_ERROR_SYSTEM_MODULE_CODE_SYSTEM_ERROR;
     }
 
-    handle = ((T_HalUsbBulkObj *) usbBulkHandle)->handle;
+    handle = ((T_HalUsbBulkObj *)usbBulkHandle)->handle;
 
-    if (((T_HalUsbBulkObj *) usbBulkHandle)->usbBulkInfo.isUsbHost == true) {
+    if (((T_HalUsbBulkObj *)usbBulkHandle)->usbBulkInfo.isUsbHost == true) {
 #ifdef LIBUSB_INSTALLED
-        ret = libusb_bulk_transfer(handle, ((T_HalUsbBulkObj *) usbBulkHandle)->usbBulkInfo.channelInfo.endPointOut,
-                                   (uint8_t *) buf, len, &actualLen, LINUX_USB_BULK_TRANSFER_TIMEOUT_MS);
+        ret = libusb_bulk_transfer(handle, ((T_HalUsbBulkObj *)usbBulkHandle)->usbBulkInfo.channelInfo.endPointOut,
+                                   (uint8_t *)buf, len, &actualLen, LINUX_USB_BULK_TRANSFER_TIMEOUT_MS);
         if (ret < 0) {
             USER_LOG_ERROR("Write usb bulk data failed, errno = %d", ret);
             return DJI_ERROR_SYSTEM_MODULE_CODE_SYSTEM_ERROR;
@@ -175,7 +174,7 @@ T_DjiReturnCode HalUsbBulk_WriteData(T_DjiUsbBulkHandle usbBulkHandle, const uin
         *realLen = actualLen;
 #endif
     } else {
-        ret = write(((T_HalUsbBulkObj *) usbBulkHandle)->ep1, buf, len);
+        ret = write(((T_HalUsbBulkObj *)usbBulkHandle)->ep1, buf, len);
         if (ret < 0) {
             USER_LOG_ERROR("write ret %d %d %s\n", ret, errno, strerror(errno));
             return DJI_ERROR_SYSTEM_MODULE_CODE_SUCCESS;
@@ -187,9 +186,7 @@ T_DjiReturnCode HalUsbBulk_WriteData(T_DjiUsbBulkHandle usbBulkHandle, const uin
     return DJI_ERROR_SYSTEM_MODULE_CODE_SUCCESS;
 }
 
-T_DjiReturnCode HalUsbBulk_ReadData(T_DjiUsbBulkHandle usbBulkHandle, uint8_t *buf, uint32_t len,
-                                    uint32_t *realLen)
-{
+T_DjiReturnCode HalUsbBulk_ReadData(T_DjiUsbBulkHandle usbBulkHandle, uint8_t *buf, uint32_t len, uint32_t *realLen) {
     int32_t ret;
     struct libusb_device_handle *handle = NULL;
     int32_t actualLen;
@@ -198,12 +195,12 @@ T_DjiReturnCode HalUsbBulk_ReadData(T_DjiUsbBulkHandle usbBulkHandle, uint8_t *b
         return DJI_ERROR_SYSTEM_MODULE_CODE_SYSTEM_ERROR;
     }
 
-    handle = ((T_HalUsbBulkObj *) usbBulkHandle)->handle;
+    handle = ((T_HalUsbBulkObj *)usbBulkHandle)->handle;
 
-    if (((T_HalUsbBulkObj *) usbBulkHandle)->usbBulkInfo.isUsbHost == true) {
+    if (((T_HalUsbBulkObj *)usbBulkHandle)->usbBulkInfo.isUsbHost == true) {
 #ifdef LIBUSB_INSTALLED
-        ret = libusb_bulk_transfer(handle, ((T_HalUsbBulkObj *) usbBulkHandle)->usbBulkInfo.channelInfo.endPointIn,
-                                   buf, len, &actualLen, LINUX_USB_BULK_TRANSFER_WAIT_FOREVER);
+        ret = libusb_bulk_transfer(handle, ((T_HalUsbBulkObj *)usbBulkHandle)->usbBulkInfo.channelInfo.endPointIn, buf,
+                                   len, &actualLen, LINUX_USB_BULK_TRANSFER_WAIT_FOREVER);
         if (ret < 0) {
             USER_LOG_ERROR("Read usb bulk data failed, errno = %d", ret);
             return DJI_ERROR_SYSTEM_MODULE_CODE_SYSTEM_ERROR;
@@ -212,7 +209,7 @@ T_DjiReturnCode HalUsbBulk_ReadData(T_DjiUsbBulkHandle usbBulkHandle, uint8_t *b
         *realLen = actualLen;
 #endif
     } else {
-        ret = read(((T_HalUsbBulkObj *) usbBulkHandle)->ep2, buf, len);
+        ret = read(((T_HalUsbBulkObj *)usbBulkHandle)->ep2, buf, len);
         if (ret < 0) {
             USER_LOG_ERROR("read ret %d %d %s\n", ret, errno, strerror(errno));
             return DJI_ERROR_SYSTEM_MODULE_CODE_SUCCESS;
@@ -224,9 +221,8 @@ T_DjiReturnCode HalUsbBulk_ReadData(T_DjiUsbBulkHandle usbBulkHandle, uint8_t *b
     return DJI_ERROR_SYSTEM_MODULE_CODE_SUCCESS;
 }
 
-T_DjiReturnCode HalUsbBulk_GetDeviceInfo(T_DjiHalUsbBulkDeviceInfo *deviceInfo)
-{
-    //attention: this interface only be called in usb device mode.
+T_DjiReturnCode HalUsbBulk_GetDeviceInfo(T_DjiHalUsbBulkDeviceInfo *deviceInfo) {
+    // attention: this interface only be called in usb device mode.
     deviceInfo->vid = LINUX_USB_VID;
     deviceInfo->pid = LINUX_USB_PID;
 

@@ -44,18 +44,18 @@ class TensorRtEngine {
   private:
     void Release();
 
-    void *runtime_ = nullptr;  // nvinfer1::IRuntime*
-    void *engine_ = nullptr;   // nvinfer1::ICudaEngine*
-    void *context_ = nullptr;  // nvinfer1::IExecutionContext*
-    void *stream_ = nullptr;   // cudaStream_t
+    void *runtime_ = nullptr; // nvinfer1::IRuntime*
+    void *engine_ = nullptr;  // nvinfer1::ICudaEngine*
+    void *context_ = nullptr; // nvinfer1::IExecutionContext*
+    void *stream_ = nullptr;  // cudaStream_t
     void *input_buffer_ = nullptr;
     void *prediction_buffer_ = nullptr;
     void *mask_coefficients_buffer_ = nullptr;
     void *prototype_buffer_ = nullptr;
-    void *event_start_ = nullptr;    // cudaEvent_t: before H2D copy
-    void *event_h2d_ = nullptr;      // cudaEvent_t: after H2D copy
-    void *event_execute_ = nullptr;  // cudaEvent_t: after enqueueV3
-    void *event_d2h_ = nullptr;      // cudaEvent_t: after D2H copies
+    void *event_start_ = nullptr;   // cudaEvent_t: before H2D copy
+    void *event_h2d_ = nullptr;     // cudaEvent_t: after H2D copy
+    void *event_execute_ = nullptr; // cudaEvent_t: after enqueueV3
+    void *event_d2h_ = nullptr;     // cudaEvent_t: after D2H copies
     std::vector<uint8_t> engine_data_;
     bool loaded_ = false;
 };

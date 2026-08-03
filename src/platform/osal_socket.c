@@ -24,14 +24,16 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "osal_socket.h"
-#include <sys/socket.h>
-#include <netinet/in.h>
+
 #include <arpa/inet.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
 #include <unistd.h>
+
 #include "stdlib.h"
 
 /* Private constants ---------------------------------------------------------*/
-#define SOCKET_RECV_BUF_MAX_SIZE    (1000 * 1000 * 10)
+#define SOCKET_RECV_BUF_MAX_SIZE (1000 * 1000 * 10)
 
 /* Private types -------------------------------------------------------------*/
 typedef struct {
@@ -43,10 +45,9 @@ typedef struct {
 /* Private functions declaration ---------------------------------------------*/
 
 /* Exported functions definition ---------------------------------------------*/
-T_DjiReturnCode Osal_Socket(E_DjiSocketMode mode, T_DjiSocketHandle *socketHandle)
-{
+T_DjiReturnCode Osal_Socket(E_DjiSocketMode mode, T_DjiSocketHandle *socketHandle) {
     T_SocketHandleStruct *socketHandleStruct;
-    socklen_t optlen = sizeof (int);
+    socklen_t optlen = sizeof(int);
     int rcvBufSize = SOCKET_RECV_BUF_MAX_SIZE;
     int opt = 1;
 
@@ -72,8 +73,7 @@ T_DjiReturnCode Osal_Socket(E_DjiSocketMode mode, T_DjiSocketHandle *socketHandl
             goto out;
         }
 
-        if (setsockopt(socketHandleStruct->socketFd, SOL_SOCKET, SO_RCVBUF, &rcvBufSize, optlen) < 0)
-        {
+        if (setsockopt(socketHandleStruct->socketFd, SOL_SOCKET, SO_RCVBUF, &rcvBufSize, optlen) < 0) {
             goto out;
         }
     } else if (mode == DJI_SOCKET_MODE_TCP) {
@@ -93,9 +93,8 @@ out:
     return DJI_ERROR_SYSTEM_MODULE_CODE_SYSTEM_ERROR;
 }
 
-T_DjiReturnCode Osal_Close(T_DjiSocketHandle socketHandle)
-{
-    T_SocketHandleStruct *socketHandleStruct = (T_SocketHandleStruct *) socketHandle;
+T_DjiReturnCode Osal_Close(T_DjiSocketHandle socketHandle) {
+    T_SocketHandleStruct *socketHandleStruct = (T_SocketHandleStruct *)socketHandle;
     int32_t ret;
 
     if (socketHandleStruct->socketFd <= 0) {
@@ -112,9 +111,8 @@ T_DjiReturnCode Osal_Close(T_DjiSocketHandle socketHandle)
     return DJI_ERROR_SYSTEM_MODULE_CODE_SUCCESS;
 }
 
-T_DjiReturnCode Osal_Bind(T_DjiSocketHandle socketHandle, const char *ipAddr, uint32_t port)
-{
-    T_SocketHandleStruct *socketHandleStruct = (T_SocketHandleStruct *) socketHandle;
+T_DjiReturnCode Osal_Bind(T_DjiSocketHandle socketHandle, const char *ipAddr, uint32_t port) {
+    T_SocketHandleStruct *socketHandleStruct = (T_SocketHandleStruct *)socketHandle;
     struct sockaddr_in addr;
     int32_t ret;
 
@@ -127,7 +125,7 @@ T_DjiReturnCode Osal_Bind(T_DjiSocketHandle socketHandle, const char *ipAddr, ui
     addr.sin_port = htons(port);
     addr.sin_addr.s_addr = inet_addr(ipAddr);
 
-    ret = bind(socketHandleStruct->socketFd, (struct sockaddr *) &addr, sizeof(struct sockaddr_in));
+    ret = bind(socketHandleStruct->socketFd, (struct sockaddr *)&addr, sizeof(struct sockaddr_in));
     if (ret < 0) {
         return DJI_ERROR_SYSTEM_MODULE_CODE_SYSTEM_ERROR;
     }
@@ -135,11 +133,10 @@ T_DjiReturnCode Osal_Bind(T_DjiSocketHandle socketHandle, const char *ipAddr, ui
     return DJI_ERROR_SYSTEM_MODULE_CODE_SUCCESS;
 }
 
-T_DjiReturnCode Osal_UdpSendData(T_DjiSocketHandle socketHandle, const char *ipAddr, uint32_t port,
-                                 const uint8_t *buf, uint32_t len, uint32_t *realLen)
-{
+T_DjiReturnCode Osal_UdpSendData(T_DjiSocketHandle socketHandle, const char *ipAddr, uint32_t port, const uint8_t *buf,
+                                 uint32_t len, uint32_t *realLen) {
     struct sockaddr_in addr;
-    T_SocketHandleStruct *socketHandleStruct = (T_SocketHandleStruct *) socketHandle;
+    T_SocketHandleStruct *socketHandleStruct = (T_SocketHandleStruct *)socketHandle;
     int32_t ret;
 
     if (socketHandle == NULL || ipAddr == NULL || port == 0 || buf == NULL || len == 0 || realLen == NULL) {
@@ -151,7 +148,7 @@ T_DjiReturnCode Osal_UdpSendData(T_DjiSocketHandle socketHandle, const char *ipA
     addr.sin_port = htons(port);
     addr.sin_addr.s_addr = inet_addr(ipAddr);
 
-    ret = sendto(socketHandleStruct->socketFd, buf, len, 0, (struct sockaddr *) &addr, sizeof(struct sockaddr_in));
+    ret = sendto(socketHandleStruct->socketFd, buf, len, 0, (struct sockaddr *)&addr, sizeof(struct sockaddr_in));
     if (ret >= 0) {
         *realLen = ret;
     } else {
@@ -161,11 +158,10 @@ T_DjiReturnCode Osal_UdpSendData(T_DjiSocketHandle socketHandle, const char *ipA
     return DJI_ERROR_SYSTEM_MODULE_CODE_SUCCESS;
 }
 
-T_DjiReturnCode Osal_UdpRecvData(T_DjiSocketHandle socketHandle, char *ipAddr, uint32_t *port,
-                                 uint8_t *buf, uint32_t len, uint32_t *realLen)
-{
+T_DjiReturnCode Osal_UdpRecvData(T_DjiSocketHandle socketHandle, char *ipAddr, uint32_t *port, uint8_t *buf,
+                                 uint32_t len, uint32_t *realLen) {
     struct sockaddr_in addr;
-    T_SocketHandleStruct *socketHandleStruct = (T_SocketHandleStruct *) socketHandle;
+    T_SocketHandleStruct *socketHandleStruct = (T_SocketHandleStruct *)socketHandle;
     uint32_t addrLen = 0;
     int32_t ret;
 
@@ -173,7 +169,7 @@ T_DjiReturnCode Osal_UdpRecvData(T_DjiSocketHandle socketHandle, char *ipAddr, u
         return DJI_ERROR_SYSTEM_MODULE_CODE_INVALID_PARAMETER;
     }
 
-    ret = recvfrom(socketHandleStruct->socketFd, buf, len, 0, (struct sockaddr *) &addr, &addrLen);
+    ret = recvfrom(socketHandleStruct->socketFd, buf, len, 0, (struct sockaddr *)&addr, &addrLen);
     if (ret >= 0) {
         *realLen = ret;
     } else {
@@ -183,10 +179,9 @@ T_DjiReturnCode Osal_UdpRecvData(T_DjiSocketHandle socketHandle, char *ipAddr, u
     return DJI_ERROR_SYSTEM_MODULE_CODE_SUCCESS;
 }
 
-T_DjiReturnCode Osal_TcpListen(T_DjiSocketHandle socketHandle)
-{
+T_DjiReturnCode Osal_TcpListen(T_DjiSocketHandle socketHandle) {
     int32_t ret;
-    T_SocketHandleStruct *socketHandleStruct = (T_SocketHandleStruct *) socketHandle;
+    T_SocketHandleStruct *socketHandleStruct = (T_SocketHandleStruct *)socketHandle;
 
     if (socketHandle == NULL) {
         return DJI_ERROR_SYSTEM_MODULE_CODE_INVALID_PARAMETER;
@@ -201,9 +196,8 @@ T_DjiReturnCode Osal_TcpListen(T_DjiSocketHandle socketHandle)
 }
 
 T_DjiReturnCode Osal_TcpAccept(T_DjiSocketHandle socketHandle, char *ipAddr, uint32_t *port,
-                               T_DjiSocketHandle *outSocketHandle)
-{
-    T_SocketHandleStruct *socketHandleStruct = (T_SocketHandleStruct *) socketHandle;
+                               T_DjiSocketHandle *outSocketHandle) {
+    T_SocketHandleStruct *socketHandleStruct = (T_SocketHandleStruct *)socketHandle;
     T_SocketHandleStruct *outSocketHandleStruct;
     struct sockaddr_in addr;
     uint32_t addrLen = 0;
@@ -217,7 +211,7 @@ T_DjiReturnCode Osal_TcpAccept(T_DjiSocketHandle socketHandle, char *ipAddr, uin
         return DJI_ERROR_SYSTEM_MODULE_CODE_MEMORY_ALLOC_FAILED;
     }
 
-    outSocketHandleStruct->socketFd = accept(socketHandleStruct->socketFd, (struct sockaddr *) &addr, &addrLen);
+    outSocketHandleStruct->socketFd = accept(socketHandleStruct->socketFd, (struct sockaddr *)&addr, &addrLen);
     if (outSocketHandleStruct->socketFd < 0) {
         free(outSocketHandleStruct);
         return DJI_ERROR_SYSTEM_MODULE_CODE_SYSTEM_ERROR;
@@ -229,10 +223,9 @@ T_DjiReturnCode Osal_TcpAccept(T_DjiSocketHandle socketHandle, char *ipAddr, uin
     return DJI_ERROR_SYSTEM_MODULE_CODE_SUCCESS;
 }
 
-T_DjiReturnCode Osal_TcpConnect(T_DjiSocketHandle socketHandle, const char *ipAddr, uint32_t port)
-{
+T_DjiReturnCode Osal_TcpConnect(T_DjiSocketHandle socketHandle, const char *ipAddr, uint32_t port) {
     struct sockaddr_in addr;
-    T_SocketHandleStruct *socketHandleStruct = (T_SocketHandleStruct *) socketHandle;
+    T_SocketHandleStruct *socketHandleStruct = (T_SocketHandleStruct *)socketHandle;
     int32_t ret;
 
     if (socketHandle == NULL || ipAddr == NULL || port == 0) {
@@ -244,7 +237,7 @@ T_DjiReturnCode Osal_TcpConnect(T_DjiSocketHandle socketHandle, const char *ipAd
     addr.sin_port = htons(port);
     addr.sin_addr.s_addr = inet_addr(ipAddr);
 
-    ret = connect(socketHandleStruct->socketFd, (struct sockaddr *) &addr, sizeof(struct sockaddr_in));
+    ret = connect(socketHandleStruct->socketFd, (struct sockaddr *)&addr, sizeof(struct sockaddr_in));
     if (ret < 0) {
         return DJI_ERROR_SYSTEM_MODULE_CODE_SYSTEM_ERROR;
     }
@@ -252,10 +245,8 @@ T_DjiReturnCode Osal_TcpConnect(T_DjiSocketHandle socketHandle, const char *ipAd
     return DJI_ERROR_SYSTEM_MODULE_CODE_SUCCESS;
 }
 
-T_DjiReturnCode Osal_TcpSendData(T_DjiSocketHandle socketHandle,
-                                 const uint8_t *buf, uint32_t len, uint32_t *realLen)
-{
-    T_SocketHandleStruct *socketHandleStruct = (T_SocketHandleStruct *) socketHandle;
+T_DjiReturnCode Osal_TcpSendData(T_DjiSocketHandle socketHandle, const uint8_t *buf, uint32_t len, uint32_t *realLen) {
+    T_SocketHandleStruct *socketHandleStruct = (T_SocketHandleStruct *)socketHandle;
     int32_t ret;
 
     if (socketHandle == NULL || buf == NULL || len == 0 || realLen == NULL) {
@@ -272,10 +263,8 @@ T_DjiReturnCode Osal_TcpSendData(T_DjiSocketHandle socketHandle,
     return DJI_ERROR_SYSTEM_MODULE_CODE_SUCCESS;
 }
 
-T_DjiReturnCode Osal_TcpRecvData(T_DjiSocketHandle socketHandle,
-                                 uint8_t *buf, uint32_t len, uint32_t *realLen)
-{
-    T_SocketHandleStruct *socketHandleStruct = (T_SocketHandleStruct *) socketHandle;
+T_DjiReturnCode Osal_TcpRecvData(T_DjiSocketHandle socketHandle, uint8_t *buf, uint32_t len, uint32_t *realLen) {
+    T_SocketHandleStruct *socketHandleStruct = (T_SocketHandleStruct *)socketHandle;
     int32_t ret;
 
     if (socketHandle == NULL || buf == NULL || len == 0 || realLen == NULL) {

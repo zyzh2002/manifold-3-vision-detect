@@ -1,10 +1,10 @@
 #pragma once
 
+#include <dji_liveview.h>
+
 #include <chrono>
 #include <cstdint>
 #include <mutex>
-
-#include <dji_liveview.h>
 
 #include "capture/latest_frame_slot.h"
 

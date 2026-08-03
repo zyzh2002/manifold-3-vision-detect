@@ -24,12 +24,14 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "osal_fs.h"
+
+#include <dirent.h>
+#include <sys/stat.h>
+
 #include "stdio.h"
 #include "stdlib.h"
-#include "unistd.h"
-#include <sys/stat.h>
-#include <dirent.h>
 #include "time.h"
+#include "unistd.h"
 
 /* Private constants ---------------------------------------------------------*/
 
@@ -40,8 +42,7 @@
 /* Private functions declaration ---------------------------------------------*/
 
 /* Exported functions definition ---------------------------------------------*/
-T_DjiReturnCode Osal_FileOpen(const char *fileName, const char *fileMode, T_DjiFileHandle *fileObj)
-{
+T_DjiReturnCode Osal_FileOpen(const char *fileName, const char *fileMode, T_DjiFileHandle *fileObj) {
     if (fileName == NULL || fileMode == NULL || fileObj == NULL) {
         return DJI_ERROR_SYSTEM_MODULE_CODE_INVALID_PARAMETER;
     }
@@ -54,8 +55,7 @@ T_DjiReturnCode Osal_FileOpen(const char *fileName, const char *fileMode, T_DjiF
     return DJI_ERROR_SYSTEM_MODULE_CODE_SUCCESS;
 }
 
-T_DjiReturnCode Osal_FileClose(T_DjiFileHandle fileObj)
-{
+T_DjiReturnCode Osal_FileClose(T_DjiFileHandle fileObj) {
     int32_t ret;
 
     if (fileObj == NULL) {
@@ -70,8 +70,7 @@ T_DjiReturnCode Osal_FileClose(T_DjiFileHandle fileObj)
     return DJI_ERROR_SYSTEM_MODULE_CODE_SUCCESS;
 }
 
-T_DjiReturnCode Osal_FileWrite(T_DjiFileHandle fileObj, const uint8_t *buf, uint32_t len, uint32_t *realLen)
-{
+T_DjiReturnCode Osal_FileWrite(T_DjiFileHandle fileObj, const uint8_t *buf, uint32_t len, uint32_t *realLen) {
     int32_t ret;
 
     if (fileObj == NULL || buf == NULL || len == 0 || realLen == NULL) {
@@ -88,8 +87,7 @@ T_DjiReturnCode Osal_FileWrite(T_DjiFileHandle fileObj, const uint8_t *buf, uint
     return DJI_ERROR_SYSTEM_MODULE_CODE_SUCCESS;
 }
 
-T_DjiReturnCode Osal_FileRead(T_DjiFileHandle fileObj, uint8_t *buf, uint32_t len, uint32_t *realLen)
-{
+T_DjiReturnCode Osal_FileRead(T_DjiFileHandle fileObj, uint8_t *buf, uint32_t len, uint32_t *realLen) {
     int32_t ret;
 
     if (fileObj == NULL || buf == NULL || len == 0 || realLen == NULL) {
@@ -106,8 +104,7 @@ T_DjiReturnCode Osal_FileRead(T_DjiFileHandle fileObj, uint8_t *buf, uint32_t le
     return DJI_ERROR_SYSTEM_MODULE_CODE_SUCCESS;
 }
 
-T_DjiReturnCode Osal_FileSeek(T_DjiFileHandle fileObj, uint32_t offset)
-{
+T_DjiReturnCode Osal_FileSeek(T_DjiFileHandle fileObj, uint32_t offset) {
     int32_t ret;
 
     if (fileObj == NULL) {
@@ -122,8 +119,7 @@ T_DjiReturnCode Osal_FileSeek(T_DjiFileHandle fileObj, uint32_t offset)
     return DJI_ERROR_SYSTEM_MODULE_CODE_SUCCESS;
 }
 
-T_DjiReturnCode Osal_FileSync(T_DjiFileHandle fileObj)
-{
+T_DjiReturnCode Osal_FileSync(T_DjiFileHandle fileObj) {
     int32_t ret;
 
     if (fileObj == NULL) {
@@ -138,8 +134,7 @@ T_DjiReturnCode Osal_FileSync(T_DjiFileHandle fileObj)
     return DJI_ERROR_SYSTEM_MODULE_CODE_SUCCESS;
 }
 
-T_DjiReturnCode Osal_DirOpen(const char *filePath, T_DjiDirHandle *dirObj)
-{
+T_DjiReturnCode Osal_DirOpen(const char *filePath, T_DjiDirHandle *dirObj) {
     if (filePath == NULL) {
         return DJI_ERROR_SYSTEM_MODULE_CODE_INVALID_PARAMETER;
     }
@@ -152,15 +147,14 @@ T_DjiReturnCode Osal_DirOpen(const char *filePath, T_DjiDirHandle *dirObj)
     return DJI_ERROR_SYSTEM_MODULE_CODE_SUCCESS;
 }
 
-T_DjiReturnCode Osal_DirClose(T_DjiDirHandle dirObj)
-{
+T_DjiReturnCode Osal_DirClose(T_DjiDirHandle dirObj) {
     int32_t ret;
 
     if (dirObj == NULL) {
         return DJI_ERROR_SYSTEM_MODULE_CODE_INVALID_PARAMETER;
     }
 
-    ret = closedir((DIR *) dirObj);
+    ret = closedir((DIR *)dirObj);
     if (ret < 0) {
         return DJI_ERROR_SYSTEM_MODULE_CODE_SYSTEM_ERROR;
     }
@@ -168,15 +162,14 @@ T_DjiReturnCode Osal_DirClose(T_DjiDirHandle dirObj)
     return DJI_ERROR_SYSTEM_MODULE_CODE_SUCCESS;
 }
 
-T_DjiReturnCode Osal_DirRead(T_DjiDirHandle dirObj, T_DjiFileInfo *fileInfo)
-{
+T_DjiReturnCode Osal_DirRead(T_DjiDirHandle dirObj, T_DjiFileInfo *fileInfo) {
     struct dirent *dirent;
 
     if (dirObj == NULL || fileInfo == NULL) {
         return DJI_ERROR_SYSTEM_MODULE_CODE_INVALID_PARAMETER;
     }
 
-    dirent = readdir((DIR *) dirObj);
+    dirent = readdir((DIR *)dirObj);
     if (!dirent) {
         return DJI_ERROR_SYSTEM_MODULE_CODE_SYSTEM_ERROR;
     }
@@ -191,8 +184,7 @@ T_DjiReturnCode Osal_DirRead(T_DjiDirHandle dirObj, T_DjiFileInfo *fileInfo)
     return DJI_ERROR_SYSTEM_MODULE_CODE_SUCCESS;
 }
 
-T_DjiReturnCode Osal_Mkdir(const char *filePath)
-{
+T_DjiReturnCode Osal_Mkdir(const char *filePath) {
     int32_t ret;
 
     if (filePath == NULL) {
@@ -207,8 +199,7 @@ T_DjiReturnCode Osal_Mkdir(const char *filePath)
     return DJI_ERROR_SYSTEM_MODULE_CODE_SUCCESS;
 }
 
-T_DjiReturnCode Osal_Unlink(const char *filePath)
-{
+T_DjiReturnCode Osal_Unlink(const char *filePath) {
     int32_t ret;
 
     if (filePath == NULL) {
@@ -230,8 +221,7 @@ T_DjiReturnCode Osal_Unlink(const char *filePath)
     return DJI_ERROR_SYSTEM_MODULE_CODE_SUCCESS;
 }
 
-T_DjiReturnCode Osal_Rename(const char *oldFilePath, const char *newFilePath)
-{
+T_DjiReturnCode Osal_Rename(const char *oldFilePath, const char *newFilePath) {
     int32_t ret;
 
     if (oldFilePath == NULL || newFilePath == NULL) {
@@ -246,8 +236,7 @@ T_DjiReturnCode Osal_Rename(const char *oldFilePath, const char *newFilePath)
     return DJI_ERROR_SYSTEM_MODULE_CODE_SUCCESS;
 }
 
-T_DjiReturnCode Osal_Stat(const char *filePath, T_DjiFileInfo *fileInfo)
-{
+T_DjiReturnCode Osal_Stat(const char *filePath, T_DjiFileInfo *fileInfo) {
     struct stat st;
     int32_t ret;
     struct tm *fileTm;
@@ -261,7 +250,7 @@ T_DjiReturnCode Osal_Stat(const char *filePath, T_DjiFileInfo *fileInfo)
         return DJI_ERROR_SYSTEM_MODULE_CODE_SYSTEM_ERROR;
     }
 
-    fileTm = localtime((const time_t *) &(st.st_mtim));
+    fileTm = localtime((const time_t *)&(st.st_mtim));
     if (fileTm == NULL) {
         return DJI_ERROR_SYSTEM_MODULE_CODE_SYSTEM_ERROR;
     }

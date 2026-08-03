@@ -35,10 +35,10 @@ void TestValidation() {
     assert(!IsValidNv12Frame(nullptr, 6, 2, 2));
     assert(!IsValidNv12Frame(kNv12Frame, 6, 0, 2));
     assert(!IsValidNv12Frame(kNv12Frame, 6, 2, 0));
-    assert(!IsValidNv12Frame(kNv12Frame, 6, 3, 2));  // odd width
-    assert(!IsValidNv12Frame(kNv12Frame, 6, 2, 3));  // odd height
-    assert(!IsValidNv12Frame(kNv12Frame, 5, 2, 2));  // len == expected - 1
-    assert(!IsValidNv12Frame(kNv12Frame, 7, 2, 2));  // len == expected + 1
+    assert(!IsValidNv12Frame(kNv12Frame, 6, 3, 2)); // odd width
+    assert(!IsValidNv12Frame(kNv12Frame, 6, 2, 3)); // odd height
+    assert(!IsValidNv12Frame(kNv12Frame, 5, 2, 2)); // len == expected - 1
+    assert(!IsValidNv12Frame(kNv12Frame, 7, 2, 2)); // len == expected + 1
 
     LatestFrameSlot slot;
     assert(slot.Push(nullptr, 6, 2, 2, 1) == FramePushResult::kInvalid);
@@ -145,7 +145,7 @@ void TestMultiThreadSmoke() {
     assert(taken >= 1);
 }
 
-}  // namespace
+} // namespace
 
 int main() {
     TestValidPushAndTake();

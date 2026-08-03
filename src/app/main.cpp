@@ -36,14 +36,13 @@ long ReadRssKb() {
     std::fclose(statusFile);
     return rssKb;
 }
-}  // namespace
+} // namespace
 
 int main(int argc, char **argv) {
     std::signal(SIGINT, OnStopSignal);
     std::signal(SIGTERM, OnStopSignal);
 
-    const std::string enginePath =
-        argc > 1 ? argv[1] : std::string("/home/dji/vision-detect/dummy_yolo11_seg.engine");
+    const std::string enginePath = argc > 1 ? argv[1] : std::string("/home/dji/vision-detect/dummy_yolo11_seg.engine");
 
     auto &lifecycle = manifold3::PsdkLifecycle::Get();
     auto &capture = manifold3::LiveviewCapture::Get();

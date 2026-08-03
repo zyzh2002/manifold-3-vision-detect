@@ -38,9 +38,8 @@ bool LiveviewCapture::Start() {
     if (started_) {
         return true;
     }
-    if (DjiLiveview_StartImageStream(DJI_LIVEVIEW_CAMERA_POSITION_NO_1, DJI_LIVEVIEW_CAMERA_SOURCE_M4T_VIS,
-                                     PIXFMT_NV12, LiveviewCapture::OnImage) !=
-        DJI_ERROR_SYSTEM_MODULE_CODE_SUCCESS) {
+    if (DjiLiveview_StartImageStream(DJI_LIVEVIEW_CAMERA_POSITION_NO_1, DJI_LIVEVIEW_CAMERA_SOURCE_M4T_VIS, PIXFMT_NV12,
+                                     LiveviewCapture::OnImage) != DJI_ERROR_SYSTEM_MODULE_CODE_SUCCESS) {
         std::fprintf(stderr, "DjiLiveview_StartImageStream failed\n");
         return false;
     }
@@ -94,8 +93,8 @@ void LiveviewCapture::OnImage(E_DjiLiveViewCameraPosition position, const uint8_
     const manifold3::capture::FramePushResult pushResult =
         capture.frame_slot_.Push(buf, len, imageInfo.width, imageInfo.height, imageInfo.frameId);
 
-    const int64_t nowUs = std::chrono::duration_cast<std::chrono::microseconds>(Clock::now().time_since_epoch())
-                              .count();
+    const int64_t nowUs =
+        std::chrono::duration_cast<std::chrono::microseconds>(Clock::now().time_since_epoch()).count();
 
     // Push is called before taking the stats lock; the two locks are never
     // nested.
@@ -115,8 +114,7 @@ void LiveviewCapture::OnImage(E_DjiLiveViewCameraPosition position, const uint8_
         const double intervalMs = static_cast<double>(nowUs - capture.lastIntervalUs_) * kUsToMs;
         stats.min_interval_ms = (stats.total_frames == 1) ? intervalMs : std::min(stats.min_interval_ms, intervalMs);
         stats.max_interval_ms = std::max(stats.max_interval_ms, intervalMs);
-        stats.avg_interval_ms =
-            (stats.avg_interval_ms * (stats.total_frames - 1) + intervalMs) / stats.total_frames;
+        stats.avg_interval_ms = (stats.avg_interval_ms * (stats.total_frames - 1) + intervalMs) / stats.total_frames;
     }
     capture.lastIntervalUs_ = nowUs;
 
@@ -130,8 +128,7 @@ void LiveviewCapture::OnImage(E_DjiLiveViewCameraPosition position, const uint8_
     }
 }
 
-bool LiveviewCapture::WaitTake(manifold3::capture::OwnedNv12Frame *frame,
-                               std::chrono::milliseconds timeout) {
+bool LiveviewCapture::WaitTake(manifold3::capture::OwnedNv12Frame *frame, std::chrono::milliseconds timeout) {
     return frame_slot_.WaitTake(frame, timeout);
 }
 

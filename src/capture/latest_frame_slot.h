@@ -27,8 +27,7 @@ bool IsValidNv12Frame(const uint8_t *data, uint32_t len, uint32_t width, uint32_
 class LatestFrameSlot {
   public:
     // Thread-safe. Returns kInvalid without storing when validation fails.
-    FramePushResult Push(const uint8_t *data, uint32_t len, uint32_t width, uint32_t height,
-                         uint32_t frame_id);
+    FramePushResult Push(const uint8_t *data, uint32_t len, uint32_t width, uint32_t height, uint32_t frame_id);
 
     // Blocks up to timeout for a stored frame; moves it out and clears the slot.
     // Returns false on timeout or after Stop().

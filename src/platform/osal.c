@@ -24,6 +24,7 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "osal.h"
+
 #include "dji_typedef.h"
 
 /* Private constants ---------------------------------------------------------*/
@@ -45,8 +46,7 @@ static uint64_t s_localTimeUsOffset = 0;
 /* Exported functions definition ---------------------------------------------*/
 
 T_DjiReturnCode Osal_TaskCreate(const char *name, void *(*taskFunc)(void *), uint32_t stackSize, void *arg,
-                                T_DjiTaskHandle *task)
-{
+                                T_DjiTaskHandle *task) {
     int result;
     char nameDealed[16] = {0};
 
@@ -60,9 +60,8 @@ T_DjiReturnCode Osal_TaskCreate(const char *name, void *(*taskFunc)(void *), uin
         return DJI_ERROR_SYSTEM_MODULE_CODE_SYSTEM_ERROR;
     }
 
-    if (name != NULL)
-        strncpy(nameDealed, name, sizeof(nameDealed) - 1);
-    result = pthread_setname_np(*(pthread_t *) *task, nameDealed);
+    if (name != NULL) strncpy(nameDealed, name, sizeof(nameDealed) - 1);
+    result = pthread_setname_np(*(pthread_t *)*task, nameDealed);
     if (result != 0) {
         return DJI_ERROR_SYSTEM_MODULE_CODE_SYSTEM_ERROR;
     }
@@ -73,19 +72,17 @@ T_DjiReturnCode Osal_TaskCreate(const char *name, void *(*taskFunc)(void *), uin
     return DJI_ERROR_SYSTEM_MODULE_CODE_SUCCESS;
 }
 
-T_DjiReturnCode Osal_TaskDestroy(T_DjiTaskHandle task)
-{
+T_DjiReturnCode Osal_TaskDestroy(T_DjiTaskHandle task) {
     if (task == NULL) {
         return DJI_ERROR_SYSTEM_MODULE_CODE_INVALID_PARAMETER;
     }
-    pthread_cancel(*(pthread_t *) task);
+    pthread_cancel(*(pthread_t *)task);
     free(task);
 
     return DJI_ERROR_SYSTEM_MODULE_CODE_SUCCESS;
 }
 
-T_DjiReturnCode Osal_TaskSleepMs(uint32_t timeMs)
-{
+T_DjiReturnCode Osal_TaskSleepMs(uint32_t timeMs) {
     usleep(1000 * timeMs);
 
     return DJI_ERROR_SYSTEM_MODULE_CODE_SUCCESS;
@@ -97,8 +94,7 @@ T_DjiReturnCode Osal_TaskSleepMs(uint32_t timeMs)
  * @param mutex:  pointer to the created mutex ID.
  * @return an enum that represents a status of PSDK
  */
-T_DjiReturnCode Osal_MutexCreate(T_DjiMutexHandle *mutex)
-{
+T_DjiReturnCode Osal_MutexCreate(T_DjiMutexHandle *mutex) {
     int result;
 
     if (!mutex) {
@@ -123,8 +119,7 @@ T_DjiReturnCode Osal_MutexCreate(T_DjiMutexHandle *mutex)
  * @param mutex:  pointer to the created mutex ID.
  * @return an enum that represents a status of PSDK
  */
-T_DjiReturnCode Osal_MutexDestroy(T_DjiMutexHandle mutex)
-{
+T_DjiReturnCode Osal_MutexDestroy(T_DjiMutexHandle mutex) {
     int result = 0;
 
     if (!mutex) {
@@ -145,8 +140,7 @@ T_DjiReturnCode Osal_MutexDestroy(T_DjiMutexHandle mutex)
  * @param mutex:  pointer to the created mutex ID.
  * @return an enum that represents a status of PSDK
  */
-T_DjiReturnCode Osal_MutexLock(T_DjiMutexHandle mutex)
-{
+T_DjiReturnCode Osal_MutexLock(T_DjiMutexHandle mutex) {
     int result = 0;
 
     if (!mutex) {
@@ -166,8 +160,7 @@ T_DjiReturnCode Osal_MutexLock(T_DjiMutexHandle mutex)
  * @param mutex:  pointer to the created mutex ID.
  * @return an enum that represents a status of PSDK
  */
-T_DjiReturnCode Osal_MutexUnlock(T_DjiMutexHandle mutex)
-{
+T_DjiReturnCode Osal_MutexUnlock(T_DjiMutexHandle mutex) {
     int result = 0;
 
     if (!mutex) {
@@ -189,24 +182,20 @@ T_DjiReturnCode Osal_MutexUnlock(T_DjiMutexHandle mutex)
  * @param initValue: initial value of semaphore.
  * @return an enum that represents a status of PSDK
  */
-T_DjiReturnCode Osal_SemaphoreCreate(uint32_t initValue, T_DjiSemaHandle *semaphore)
-{
+T_DjiReturnCode Osal_SemaphoreCreate(uint32_t initValue, T_DjiSemaHandle *semaphore) {
     int result;
 
     *semaphore = malloc(sizeof(sem_t));
     if (*semaphore == NULL) {
-        return
-            DJI_ERROR_SYSTEM_MODULE_CODE_MEMORY_ALLOC_FAILED;
+        return DJI_ERROR_SYSTEM_MODULE_CODE_MEMORY_ALLOC_FAILED;
     }
 
-    result = sem_init(*semaphore, 0, (unsigned int) initValue);
+    result = sem_init(*semaphore, 0, (unsigned int)initValue);
     if (result != 0) {
-        return
-            DJI_ERROR_SYSTEM_MODULE_CODE_SYSTEM_ERROR;
+        return DJI_ERROR_SYSTEM_MODULE_CODE_SYSTEM_ERROR;
     }
 
-    return
-        DJI_ERROR_SYSTEM_MODULE_CODE_SUCCESS;
+    return DJI_ERROR_SYSTEM_MODULE_CODE_SUCCESS;
 }
 
 /**
@@ -214,11 +203,10 @@ T_DjiReturnCode Osal_SemaphoreCreate(uint32_t initValue, T_DjiSemaHandle *semaph
  * @param semaphore: pointer to the created semaphore ID.
  * @return an enum that represents a status of PSDK
  */
-T_DjiReturnCode Osal_SemaphoreDestroy(T_DjiSemaHandle semaphore)
-{
+T_DjiReturnCode Osal_SemaphoreDestroy(T_DjiSemaHandle semaphore) {
     int result;
 
-    result = sem_destroy((sem_t *) semaphore);
+    result = sem_destroy((sem_t *)semaphore);
     if (result != 0) {
         return DJI_ERROR_SYSTEM_MODULE_CODE_SYSTEM_ERROR;
     }
@@ -233,8 +221,7 @@ T_DjiReturnCode Osal_SemaphoreDestroy(T_DjiSemaHandle semaphore)
  * @param semaphore: pointer to the created semaphore ID.
  * @return an enum that represents a status of PSDK
  */
-T_DjiReturnCode Osal_SemaphoreWait(T_DjiSemaHandle semaphore)
-{
+T_DjiReturnCode Osal_SemaphoreWait(T_DjiSemaHandle semaphore) {
     int result;
 
     result = sem_wait(semaphore);
@@ -251,8 +238,7 @@ T_DjiReturnCode Osal_SemaphoreWait(T_DjiSemaHandle semaphore)
  * @param waitTime: timeout value of waiting semaphore, unit: millisecond.
  * @return an enum that represents a status of PSDK
  */
-T_DjiReturnCode Osal_SemaphoreTimedWait(T_DjiSemaHandle semaphore, uint32_t waitTime)
-{
+T_DjiReturnCode Osal_SemaphoreTimedWait(T_DjiSemaHandle semaphore, uint32_t waitTime) {
     int result;
     struct timespec semaphoreWaitTime;
     struct timeval systemTime;
@@ -281,8 +267,7 @@ T_DjiReturnCode Osal_SemaphoreTimedWait(T_DjiSemaHandle semaphore, uint32_t wait
  * @param semaphore: pointer to the created semaphore ID.
  * @return an enum that represents a status of PSDK
  */
-T_DjiReturnCode Osal_SemaphorePost(T_DjiSemaHandle semaphore)
-{
+T_DjiReturnCode Osal_SemaphorePost(T_DjiSemaHandle semaphore) {
     int result;
 
     result = sem_post(semaphore);
@@ -297,8 +282,7 @@ T_DjiReturnCode Osal_SemaphorePost(T_DjiSemaHandle semaphore)
  * @brief Get the system time for ms.
  * @return an uint32 that the time of system, uint:ms
  */
-T_DjiReturnCode Osal_GetTimeMs(uint32_t *ms)
-{
+T_DjiReturnCode Osal_GetTimeMs(uint32_t *ms) {
     struct timeval time;
 
     gettimeofday(&time, NULL);
@@ -313,8 +297,7 @@ T_DjiReturnCode Osal_GetTimeMs(uint32_t *ms)
     return DJI_ERROR_SYSTEM_MODULE_CODE_SUCCESS;
 }
 
-T_DjiReturnCode Osal_GetTimeUs(uint64_t *us)
-{
+T_DjiReturnCode Osal_GetTimeUs(uint64_t *us) {
     struct timeval time;
 
     gettimeofday(&time, NULL);
@@ -329,21 +312,18 @@ T_DjiReturnCode Osal_GetTimeUs(uint64_t *us)
     return DJI_ERROR_SYSTEM_MODULE_CODE_SUCCESS;
 }
 
-T_DjiReturnCode Osal_GetRandomNum(uint16_t *randomNum)
-{
+T_DjiReturnCode Osal_GetRandomNum(uint16_t *randomNum) {
     srand(time(NULL));
     *randomNum = random() % 65535;
 
     return DJI_ERROR_SYSTEM_MODULE_CODE_SUCCESS;
 }
 
-void *Osal_Malloc(uint32_t size)
-{
+void *Osal_Malloc(uint32_t size) {
     return malloc(size);
 }
 
-void Osal_Free(void *ptr)
-{
+void Osal_Free(void *ptr) {
     free(ptr);
 }
 

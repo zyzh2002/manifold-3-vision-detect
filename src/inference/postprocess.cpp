@@ -59,8 +59,8 @@ bool DecodeSyntheticSeg(const SyntheticOutputs &outputs, std::vector<Detection> 
     }
     const size_t predictionSize = static_cast<size_t>(kSyntheticPredictionChannels) * kSyntheticAnchors;
     const size_t maskCoefficientsSize = static_cast<size_t>(kSyntheticMaskCoefficientChannels) * kSyntheticAnchors;
-    const size_t prototypeSize = static_cast<size_t>(kSyntheticMaskCoefficientChannels) * kSyntheticPrototypeHeight *
-                                 kSyntheticPrototypeWidth;
+    const size_t prototypeSize =
+        static_cast<size_t>(kSyntheticMaskCoefficientChannels) * kSyntheticPrototypeHeight * kSyntheticPrototypeWidth;
     if (outputs.prediction.size() != predictionSize) {
         std::fprintf(stderr, "DecodeSyntheticSeg: prediction size %zu, expected %zu\n", outputs.prediction.size(),
                      predictionSize);
@@ -124,8 +124,7 @@ bool DecodeSyntheticSeg(const SyntheticOutputs &outputs, std::vector<Detection> 
         for (uint32_t p = 0; p < kMaskW * kMaskH; ++p) {
             float acc = 0.0f;
             for (uint32_t k = 0; k < kNumMaskCoeffs; ++k) {
-                acc += outputs.mask_coefficients[k * maskStride + a] *
-                       outputs.prototype[k * kMaskW * kMaskH + p];
+                acc += outputs.mask_coefficients[k * maskStride + a] * outputs.prototype[k * kMaskW * kMaskH + p];
             }
             mask[p] = Sigmoid(acc) >= 0.5f ? 1 : 0;
         }
