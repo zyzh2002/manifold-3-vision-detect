@@ -6,7 +6,6 @@
 #include <netinet/in.h>
 #include <poll.h>
 #include <sys/socket.h>
-#include <sys/time.h>
 #include <unistd.h>
 
 #include <algorithm>
@@ -27,18 +26,10 @@ namespace {
 
 constexpr int kPollTimeoutMs = 100;
 constexpr int kRecvBufSize = 4096;
-constexpr std::chrono::milliseconds kSendTimeoutMs(500);
 
 void SetNonBlocking(int fd) {
     const int flags = fcntl(fd, F_GETFL, 0);
     fcntl(fd, F_SETFL, flags | O_NONBLOCK);
-}
-
-void SetSendTimeout(int fd, std::chrono::milliseconds timeout) {
-    timeval tv{};
-    tv.tv_sec = static_cast<time_t>(timeout.count() / 1000);
-    tv.tv_usec = static_cast<suseconds_t>((timeout.count() % 1000) * 1000);
-    setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv));
 }
 
 struct JpegErrorState {
@@ -83,9 +74,10 @@ bool MjpegStreamer::Start(uint16_t port, int quality, uint32_t max_fps, double s
     port_ = ntohs(bound.sin_port);
     quality_ = quality < 1 ? 1 : (quality > 100 ? 100 : quality);
     max_fps_ = max_fps == 0 ? 1 : max_fps;
-    // Clamp scale to the downscale-only contract: an out-of-range value would
-    // reach DownscaleRgb24's division-by-zero path (bw/bh = 0 when upscaling).
-    scale_ = (scale <= 0.0 || scale > 1.0) ? 1.0 : scale;
+    // Clamp scale to the downscale-only contract: NaN or an out-of-range
+    // value would reach DownscaleRgb24's division-by-zero path (bw/bh = 0
+    // when upscaling).
+    scale_ = !(scale > 0.0 && scale <= 1.0) ? 1.0 : scale;
     provider_ = std::move(provider);
     stop_requested_ = false;
     running_ = true;
@@ -136,7 +128,6 @@ StreamerStats MjpegStreamer::GetStats() const {
 
 void MjpegStreamer::AcceptClient(int fd) {
     SetNonBlocking(fd);
-    SetSendTimeout(fd, kSendTimeoutMs);
     // The HTTP response must precede the first multipart part, otherwise
     // clients (browsers, curl) cannot parse the stream and wait forever.
     std::vector<uint8_t> headers;
