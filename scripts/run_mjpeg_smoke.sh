@@ -37,7 +37,8 @@ ssh "${SSH_OPTS[@]}" "dji@${TARGET_IP}" "chmod +x ${REMOTE_BIN}"
 # SIGTERM the executing shell itself.
 ssh "${SSH_OPTS[@]}" "dji@${TARGET_IP}" "pkill -f '[s]tream_demo' 2>/dev/null || true"
 ssh "${SSH_OPTS[@]}" "dji@${TARGET_IP}" \
-  "sleep 1; nohup ${REMOTE_BIN} --port=8081 >/tmp/stream_demo.log 2>&1 & sleep 4"
+  "sleep 1; nohup ${REMOTE_BIN} --port=8081 >/tmp/stream_demo.log 2>&1 & sleep 8"
+# (the 8s wait covers the ~6s PSDK init before the streamer binds)
 
 # Pull 1 MB of the stream from the host over the same path the browser uses
 # (the device has no curl on JetPack 5.1.3). head -c terminates the pipeline
