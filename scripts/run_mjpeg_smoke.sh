@@ -13,6 +13,14 @@ TARGET_IP="$1"
 DO_BUILD=true
 [ "${2:-}" = "--no-build" ] && DO_BUILD=false
 
+# Stop any leftover demo on every exit path. The bracket pattern keeps the
+# pkill from matching this shell's own cmdline (sshd runs the command via
+# sh -c, and a plain "pkill -f stream_demo" would SIGTERM the shell itself).
+cleanup() {
+    ssh "${SSH_OPTS[@]}" "dji@${TARGET_IP}" "pkill -f '[s]tream_demo' 2>/dev/null || true"
+}
+trap cleanup EXIT
+
 if [ "${DO_BUILD}" = true ]; then
     source "${REPO_ROOT}/scripts/setup_env.sh"
     cmake --build "${REPO_ROOT}/build-cross" --target stream_demo -j"$(nproc)"
@@ -23,7 +31,7 @@ ssh "${SSH_OPTS[@]}" "dji@${TARGET_IP}" "chmod +x ${REMOTE_BIN}"
 
 # Start the demo, capture a few seconds of stream, then stop it.
 ssh "${SSH_OPTS[@]}" "dji@${TARGET_IP}" \
-  "pkill -f stream_demo 2>/dev/null; sleep 1; nohup ${REMOTE_BIN} --port=8080 >/tmp/stream_demo.log 2>&1 & sleep 4"
+  "pkill -f '[s]tream_demo' 2>/dev/null; sleep 1; nohup ${REMOTE_BIN} --port=8080 >/tmp/stream_demo.log 2>&1 & sleep 4"
 
 # Pull 1 MB of the stream and validate multipart + JPEG magic.
 BYTES="$(ssh "${SSH_OPTS[@]}" "dji@${TARGET_IP}" \
@@ -47,5 +55,5 @@ print("OK: JPEG frame starts at byte %d, payload %d bytes" % (idx, len(data) - i
 EOF
 
 ssh "${SSH_OPTS[@]}" "dji@${TARGET_IP}" "tail -5 /tmp/stream_demo.log"
-ssh "${SSH_OPTS[@]}" "dji@${TARGET_IP}" "pkill -f stream_demo; sleep 1; echo stopped"
+# The EXIT trap stops the demo and reports completion.
 echo "MJPG smoke test passed"

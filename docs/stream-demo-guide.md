@@ -12,7 +12,7 @@
 
 ```bash
 ssh -i config/manifold3_id_rsa -o StrictHostKeyChecking=no dji@192.168.42.120 \
-  "dji_app_ctl stop Smart3DExplore; pkill -f Smart3DExplore 2>/dev/null; sleep 1"
+  "dji_app_ctl stop Smart3DExplore; pkill -f '[S]mart3DExplore' 2>/dev/null; sleep 1"
 ```
 
 > 若 `dji_app_ctl stop` 报错 257 属正常，`pkill` 兜底会生效。
@@ -38,7 +38,7 @@ SSH 会话每秒一行统计：
 | `--port=8080` | 推流端口（默认 8080） |
 | `--quality=80` | JPEG 质量 1..100（默认 80） |
 | `--max-fps=25` | 最大帧率 1..60（默认 25） |
-| `--scale=0.66` | 输出缩放（默认 1.0；0.66 输出 1280x960） |
+| `--scale=0.89` | 输出缩放（默认 1.0；0.89 输出约 1280x960） |
 
 ### 4. 演示结束恢复设备
 
