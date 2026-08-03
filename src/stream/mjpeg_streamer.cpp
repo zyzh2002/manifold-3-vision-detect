@@ -95,19 +95,20 @@ void MjpegStreamer::Stop() {
     std::thread worker;
     {
         std::lock_guard<std::mutex> lock(mutex_);
-        if (!running_) {
-            return;
-        }
-        stop_requested_ = true;
-        if (listen_fd_ >= 0) {
+        stop_requested_ = true; // idempotent
+        if (running_ && listen_fd_ >= 0) {
             shutdown(listen_fd_, SHUT_RDWR);
             close(listen_fd_);
             listen_fd_ = -1;
         }
-        worker = std::move(worker_);
+        if (worker_.joinable()) {
+            worker = std::move(worker_);
+        }
     }
-    // The worker's poll and frame-provider calls are bounded, so join returns
-    // promptly; no detached-thread use-after-free window remains.
+    // Join unconditionally: a finished-but-unjoined worker thread is still
+    // joinable, and destroying it without joining calls std::terminate.
+    // The worker's poll and frame-provider calls are bounded, so join
+    // returns promptly even when the worker exited via the provider path.
     if (worker.joinable()) {
         worker.join();
     }
