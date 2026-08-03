@@ -48,11 +48,12 @@ target_link_libraries(manifold3_vision_detect PRIVATE
     dl
 )
 
-# Capture-only demo for customer demonstration: terminal render + stats.
-# No TensorRT dependency; links only capture/core/platform + PSDK.
-add_executable(capture_demo capture_demo.cpp)
-target_link_options(capture_demo PRIVATE -pthread)
-target_link_libraries(capture_demo PRIVATE
+# Capture-only demo for customer demonstration: MJPEG stream for a browser.
+# No TensorRT dependency; links only stream/capture/core/platform + PSDK.
+add_executable(stream_demo stream_demo.cpp)
+target_link_options(stream_demo PRIVATE -pthread)
+target_link_libraries(stream_demo PRIVATE
+    stream
     capture
     core
     platform
