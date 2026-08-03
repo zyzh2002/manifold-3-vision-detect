@@ -70,6 +70,16 @@ scp -i config/manifold3_id_rsa -o StrictHostKeyChecking=no \
   build-cross/src/app/stream_demo dji@192.168.42.120:~/vision-detect/
 ```
 
+## 一键冒烟验证（自动构建 + 部署 + 校验）
+
+```bash
+scripts/run_mjpeg_smoke.sh 192.168.42.120
+```
+
+自动完成：注入凭据构建 → 部署到设备 → 启动 demo → 主机侧拉流校验
+（HTTP 200 + multipart + JPEG 帧）→ 检查统计日志 → 结束自动清理。失败时
+`FAIL:` 开头报错；前置条件与手动演示相同（飞机在线、Smart3DExplore 已停）。
+
 ## 代码位置
 
 - `src/app/stream_demo.cpp`（demo 分支新增，`main.cpp` 未改动）
