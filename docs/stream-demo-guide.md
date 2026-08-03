@@ -12,7 +12,9 @@
 
 ```bash
 ssh -i config/manifold3_id_rsa -o StrictHostKeyChecking=no dji@192.168.42.120 \
-  "dji_app_ctl stop Smart3DExplore; pkill -f '[S]mart3DExplore' 2>/dev/null; sleep 1"
+  "dji_app_ctl stop Smart3DExplore 2>/dev/null || true"
+ssh -i config/manifold3_id_rsa -o StrictHostKeyChecking=no dji@192.168.42.120 \
+  "pkill -f '[S]mart3DExplore' 2>/dev/null || true; sleep 1"
 ```
 
 > 若 `dji_app_ctl stop` 报错 257 属正常，`pkill` 兜底会生效。
