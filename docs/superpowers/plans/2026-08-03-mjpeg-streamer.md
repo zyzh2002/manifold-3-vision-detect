@@ -4,7 +4,7 @@
 
 **Goal:** Replace the low-resolution terminal liveview demo with a full-resolution MJPEG-over-HTTP stream that renders in a browser on the development host.
 
-**Architecture:** The device encodes NV12 frames to JPEG with libjpeg-turbo and serves them over a tiny multipart HTTP server (`multipart/x-mixed-replace`); the dev host opens `http://192.168.42.120:8080/` in Chrome. Pure conversion/framing code is host-testable; the streamer (sockets + libjpeg) is cross-build-only because the host has no libjpeg dev files.
+**Architecture:** The device encodes NV12 frames to JPEG with libjpeg-turbo and serves them over a tiny multipart HTTP server (`multipart/x-mixed-replace`); the dev host opens `http://192.168.42.120:8081/` in Chrome. Pure conversion/framing code is host-testable; the streamer (sockets + libjpeg) is cross-build-only because the host has no libjpeg dev files.
 
 **Tech Stack:** C++17, POSIX sockets, libjpeg-turbo (already in the cross sysroot as `libjpeg.so` + `jpeglib.h`), CMake presets (`manifold3-cross-release`, `host-debug`), ctest.
 
@@ -14,7 +14,9 @@
 - Work happens on branch `demo/capture-demo`; commit messages in English with conventional-commit prefixes.
 - Code style: C++17, LLVM clang-format, 120-column limit, snake_case files/functions, PascalCase types, no Chinese comments.
 - Host build must NOT require libjpeg (host has no `jpeglib.h`); `mjpeg_streamer.cpp` is compiled only when cross-compiling.
-- Default stream parameters: port 8080, quality 80, max_fps 25, scale 1.0 (full 1440x1080).
+- Default stream parameters: port 8081, quality 80, max_fps 25, scale 1.0 (full 1440x1080).
+  Port note: the device's port 8080 is occupied by an orphaned system listener that cannot be
+  killed; 8081 is the demo default (deviation from the design doc's 8080, recorded in commits).
 - libjpeg encode uses `jpeg_mem_dest` (libjpeg-turbo, present in the sysroot).
 - The demo binary must keep the per-second stats line and clean SIGINT/SIGTERM shutdown.
 - No inference overlay. Terminal rendering is removed entirely.
@@ -658,6 +660,19 @@ StreamerStats MjpegStreamer::GetStats() const {
 void MjpegStreamer::AcceptClient(int fd) {
     SetNonBlocking(fd);
     SetSendTimeout(fd, kSendTimeoutMs);
+    // The HTTP response must precede the first multipart part, otherwise
+    // clients (browsers, curl) cannot parse the stream and wait forever.
+    std::vector<uint8_t> headers;
+    AppendHttpHeaders(&headers);
+    ssize_t sent = 0;
+    while (sent < static_cast<ssize_t>(headers.size())) {
+        const ssize_t n = send(fd, headers.data() + sent, headers.size() - sent, MSG_NOSIGNAL);
+        if (n <= 0) {
+            close(fd);
+            return;
+        }
+        sent += n;
+    }
     std::lock_guard<std::mutex> lock(mutex_);
     clients_.push_back(fd);
     ++stats_.clients_served;
@@ -695,12 +710,17 @@ void MjpegStreamer::WorkerLoop() {
             }
         }
         // Sleep until the next frame is due (or until client I/O wakes us).
+        // When the deadline is already past (slow frame), poll with timeout 0:
+        // a full kPollTimeoutMs stall per cycle would collapse the frame rate
+        // to ~1/kPollTimeoutMs once frames take longer than the interval.
         const auto pollDeadline = std::chrono::steady_clock::now();
         int pollTimeoutMs = kPollTimeoutMs;
         if (nextFrameDue > pollDeadline) {
             const auto untilDue = std::chrono::duration_cast<std::chrono::milliseconds>(
                 nextFrameDue - pollDeadline);
             pollTimeoutMs = std::min(kPollTimeoutMs, static_cast<int>(untilDue.count()));
+        } else {
+            pollTimeoutMs = 0;
         }
         const int pollResult = poll(pollfds.data(), pollfds.size(), pollTimeoutMs);
         if (pollResult > 0 && (pollfds[0].revents & (POLLIN | POLLERR | POLLHUP))) {
@@ -911,12 +931,12 @@ Create `src/app/stream_demo.cpp`:
 // Liveview demo for customer demonstration.
 //
 // Serves the Manifold 3 NV12 liveview stream as MJPEG over HTTP:
-// open http://192.168.42.120:8080/ in a browser (F11 for fullscreen).
+// open http://192.168.42.120:8081/ in a browser (F11 for fullscreen).
 // Prints one per-second statistics line to stdout. Throwaway demo binary:
 // it does not load any inference engine.
 //
 // Usage (on the device, or via ssh):
-//   ./stream_demo [--port=8080] [--quality=80] [--max-fps=25] [--scale=1.0]
+//   ./stream_demo [--port=8081] [--quality=80] [--max-fps=25] [--scale=1.0]
 
 #include <chrono>
 #include <csignal>
@@ -959,7 +979,7 @@ int main(int argc, char **argv) {
     std::signal(SIGINT, OnStopSignal);
     std::signal(SIGTERM, OnStopSignal);
 
-    uint16_t port = 8080;
+    uint16_t port = 8081; // device port 8080 is taken
     int quality = 80;
     uint32_t maxFps = 25;
     double scale = 1.0;
@@ -1172,13 +1192,13 @@ ssh "${SSH_OPTS[@]}" "dji@${TARGET_IP}" "chmod +x ${REMOTE_BIN}"
 # SIGTERM the executing shell itself.
 ssh "${SSH_OPTS[@]}" "dji@${TARGET_IP}" "pkill -f '[s]tream_demo' 2>/dev/null || true"
 ssh "${SSH_OPTS[@]}" "dji@${TARGET_IP}" \
-  "sleep 1; nohup ${REMOTE_BIN} --port=8080 >/tmp/stream_demo.log 2>&1 & sleep 4"
+  "sleep 1; nohup ${REMOTE_BIN} --port=8081 >/tmp/stream_demo.log 2>&1 & sleep 4"
 
 # Pull 1 MB of the stream from the host over the same path the browser uses
 # (the device has no curl on JetPack 5.1.3). head -c terminates the pipeline
 # early; curl then exits non-zero on the write error, so swallow that
 # expected pipeline failure. --noproxy '*' bypasses any host HTTP proxy env.
-curl -sN --noproxy '*' --max-time 5 "http://${TARGET_IP}:8080/" | head -c 1048576 \
+curl -sN --noproxy '*' --max-time 5 "http://${TARGET_IP}:8081/" | head -c 1048576 \
   > /tmp/stream_demo_capture.bin || true
 
 grep -q -- "--frame" <(head -c 200 /tmp/stream_demo_capture.bin) || {
@@ -1234,8 +1254,8 @@ ssh -i config/manifold3_id_rsa -o StrictHostKeyChecking=no dji@192.168.42.120 \
   "cd ~/vision-detect && ./stream_demo"
 ```
 
-效果：设备在 8080 端口提供 MJPEG 流。开发主机浏览器打开
-`http://192.168.42.120:8080/`，F11 全屏观看（1440x1080 全彩，约 25 fps）。
+效果：设备在 8081 端口提供 MJPEG 流。开发主机浏览器打开
+`http://192.168.42.120:8081/`，F11 全屏观看（1440x1080 全彩）。
 SSH 会话每秒一行统计：
 `fps / size / source_drop / handoff_drop / invalid / enc_frames / enc_fail / clients / avg_encode_ms / avg_interval_ms / rss_kb`
 
@@ -1245,7 +1265,7 @@ SSH 会话每秒一行统计：
 
 | 参数 | 说明 |
 |---|---|
-| `--port=8080` | 推流端口（默认 8080） |
+| `--port=8081` | 推流端口（默认 8081；设备 8080 被系统服务占用） |
 | `--quality=80` | JPEG 质量 1..100（默认 80） |
 | `--max-fps=25` | 最大帧率 1..60（默认 25） |
 | `--scale=0.89` | 输出缩放（默认 1.0；0.89 输出约 1280x960） |
@@ -1262,7 +1282,7 @@ ssh -i config/manifold3_id_rsa -o StrictHostKeyChecking=no dji@192.168.42.120 \
 | 现象 | 原因与处理 |
 |---|---|
 | 浏览器画面卡住/空白 | 等 1-2 秒自动恢复（MJPEG 丢帧后浏览器等待下一帧）；确认飞机在线 |
-| 启动报 "bind failed on port 8080" | 端口被占用，换 `--port=8081` 或检查残留进程 |
+| 启动报 "bind failed on port 8081" | 端口被占用，检查残留进程或换其他端口 |
 | 提示 "Address already in use"（PSDK） | Smart3DExplore 未停干净，重跑第 1 步 |
 | "PSDK credentials not configured" | 凭据未注入，先运行 `scripts/configure_cross_with_credentials.sh` 再重新构建部署 |
 | 统计行 fps=0 持续 | 飞机/Pilot 不在线，确认无人机开机并连接 Pilot |
@@ -1292,7 +1312,7 @@ Expected: prints `OK: JPEG frame starts at byte N...`, demo stats tail, `MJPG sm
 
 - [ ] **Step 4: Manual browser validation**
 
-On the dev host: open `http://192.168.42.120:8080/` in Chrome, F11, confirm smooth full-resolution picture; then Ctrl-C the SSH demo and confirm clean shutdown lines.
+On the dev host: open `http://192.168.42.120:8081/` in Chrome, F11, confirm smooth full-resolution picture; then Ctrl-C the SSH demo and confirm clean shutdown lines.
 
 - [ ] **Step 5: Commit**
 
