@@ -491,6 +491,7 @@ class MjpegStreamer {
     double scale_ = 1.0;
     FrameProvider provider_;
     std::vector<int> clients_;
+    std::thread worker_;
     StreamerStats stats_;
 };
 
@@ -607,11 +608,12 @@ bool MjpegStreamer::Start(uint16_t port, int quality, uint32_t max_fps, double s
     provider_ = std::move(provider);
     stop_requested_ = false;
     running_ = true;
-    std::thread(&MjpegStreamer::WorkerLoop, this).detach();
+    worker_ = std::thread(&MjpegStreamer::WorkerLoop, this);
     return true;
 }
 
 void MjpegStreamer::Stop() {
+    std::thread worker;
     {
         std::lock_guard<std::mutex> lock(mutex_);
         if (!running_) {
@@ -623,18 +625,13 @@ void MjpegStreamer::Stop() {
             close(listen_fd_);
             listen_fd_ = -1;
         }
+        worker = std::move(worker_);
     }
-    // Wait for the worker to finish (it polls with a bounded timeout, then
-    // observes stop_requested_).
-    for (int i = 0; i < 200; ++i) {
-        std::lock_guard<std::mutex> lock(mutex_);
-        if (!running_) {
-            return;
-        }
-        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    // The worker's poll and frame-provider calls are bounded, so join returns
+    // promptly; no detached-thread use-after-free window remains.
+    if (worker.joinable()) {
+        worker.join();
     }
-    std::lock_guard<std::mutex> lock(mutex_);
-    running_ = false;
 }
 
 uint16_t MjpegStreamer::port() const {
@@ -660,7 +657,10 @@ void MjpegStreamer::WorkerLoop() {
     std::vector<uint8_t> jpeg;
     std::vector<pollfd> pollfds;
     auto lastFrameAt = std::chrono::steady_clock::now();
-    auto lastSendAt = std::chrono::steady_clock::now();
+    // Deadline of the next allowed frame pull. Polling waits until this
+    // deadline so the poll timeout does not dominate the frame cadence.
+    auto nextFrameDue = lastFrameAt;
+    const auto frameInterval = std::chrono::milliseconds(1000 / max_fps_);
     uint64_t frameIntervalUs = 0;
     uint64_t frameIntervalCount = 0;
     uint64_t encodeUs = 0;
@@ -683,7 +683,15 @@ void MjpegStreamer::WorkerLoop() {
                 pollfds.push_back(pollfd{fd, POLLIN, 0});
             }
         }
-        const int pollResult = poll(pollfds.data(), pollfds.size(), kPollTimeoutMs);
+        // Sleep until the next frame is due (or until client I/O wakes us).
+        const auto pollDeadline = std::chrono::steady_clock::now();
+        int pollTimeoutMs = kPollTimeoutMs;
+        if (nextFrameDue > pollDeadline) {
+            const auto untilDue = std::chrono::duration_cast<std::chrono::milliseconds>(
+                nextFrameDue - pollDeadline);
+            pollTimeoutMs = std::min(kPollTimeoutMs, static_cast<int>(untilDue.count()));
+        }
+        const int pollResult = poll(pollfds.data(), pollfds.size(), pollTimeoutMs);
         if (pollResult > 0 && (pollfds[0].revents & (POLLIN | POLLERR | POLLHUP))) {
             const int clientFd = accept(listen_fd_, nullptr, nullptr);
             if (clientFd >= 0) {
@@ -713,7 +721,7 @@ void MjpegStreamer::WorkerLoop() {
 
         // Throttled frame pull.
         const auto now = std::chrono::steady_clock::now();
-        if (now - lastSendAt < std::chrono::milliseconds(1000 / max_fps_)) {
+        if (now < nextFrameDue) {
             continue;
         }
 
@@ -810,8 +818,20 @@ void MjpegStreamer::WorkerLoop() {
             }
             ++stats_.encoded_frames;
             stats_.active_clients = static_cast<uint32_t>(clients_.size());
+            // Publish live averages so GetStats() is meaningful while running.
+            if (encodeCount > 0) {
+                stats_.avg_encode_ms = static_cast<double>(encodeUs) / encodeCount / 1000.0;
+            }
+            if (frameIntervalCount > 0) {
+                stats_.avg_frame_interval_ms =
+                    static_cast<double>(frameIntervalUs) / frameIntervalCount / 1000.0;
+            }
         }
-        lastSendAt = std::chrono::steady_clock::now();
+        // Advance the cadence deadline; never burst-catch-up after a slow frame.
+        nextFrameDue += frameInterval;
+        if (nextFrameDue < now) {
+            nextFrameDue = now;
+        }
     }
 
     {
@@ -821,13 +841,6 @@ void MjpegStreamer::WorkerLoop() {
         }
         clients_.clear();
         stats_.active_clients = 0;
-        if (encodeCount > 0) {
-            stats_.avg_encode_ms = static_cast<double>(encodeUs) / encodeCount / 1000.0;
-        }
-        if (frameIntervalCount > 0) {
-            stats_.avg_frame_interval_ms =
-                static_cast<double>(frameIntervalUs) / frameIntervalCount / 1000.0;
-        }
         running_ = false;
     }
 }
