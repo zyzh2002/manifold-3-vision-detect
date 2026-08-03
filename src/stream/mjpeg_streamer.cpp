@@ -87,6 +87,14 @@ bool MjpegStreamer::Start(uint16_t port, int quality, uint32_t max_fps, double s
     provider_ = std::move(provider);
     stop_requested_ = false;
     running_ = true;
+    // A finished-but-unjoined worker (natural provider-false exit) must be
+    // joined before spawning a new one: move-assigning a std::thread over a
+    // joinable thread calls std::terminate. The worker never takes mutex_
+    // again after setting running_ = false, so joining under the lock cannot
+    // deadlock.
+    if (worker_.joinable()) {
+        worker_.join();
+    }
     worker_ = std::thread(&MjpegStreamer::WorkerLoop, this);
     return true;
 }
@@ -315,6 +323,13 @@ void MjpegStreamer::WorkerLoop() {
             close(fd);
         }
         clients_.clear();
+        // Close the listener too: on a natural provider-false exit Stop()
+        // skips its running_ guard, so without this the bound socket would
+        // leak and block a same-port restart with EADDRINUSE.
+        if (listen_fd_ >= 0) {
+            close(listen_fd_);
+            listen_fd_ = -1;
+        }
         stats_.active_clients = 0;
         running_ = false;
     }
