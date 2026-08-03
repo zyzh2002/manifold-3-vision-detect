@@ -60,6 +60,7 @@ class MjpegStreamer {
     double scale_ = 1.0;
     FrameProvider provider_;
     std::vector<int> clients_;
+    std::thread worker_;
     StreamerStats stats_;
 };
 
