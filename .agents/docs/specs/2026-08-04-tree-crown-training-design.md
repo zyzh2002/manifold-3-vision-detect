@@ -27,7 +27,7 @@ share no code; their only handoff point is a versioned Hugging Face private mode
 ```
 ┌──────────────────┐   ONNX + model.yaml    ┌──────────────────────┐
 │  Training repo   │ ─────────────────────> │  HF 私有模型仓库      │
-│  (GitHub 公有)    │    (版本化发布)         │  tree-crown-yolo11-seg│
+│  (GitHub 公有)    │    (版本化发布)         │  zyzh0/tree-crown-yolo11-seg│
 └──────────────────┘                        └──────────────────────┘
                                                     │
                                              fetch_model.sh 拉取
@@ -100,4 +100,7 @@ target_trt: "8.5.2"       # onboard TensorRT version
 
 - Actual tree-crown class list (placeholder in `data.yaml` until dataset is confirmed).
 - Dataset size / provenance / versioning (DVC vs `.gitignore`).
-- HF repo id and owner namespace.
+
+## Confirmed Model Repo
+
+- **HF repo**: `zyzh0/tree-crown-yolo11-seg` (private), accessible via SSH.

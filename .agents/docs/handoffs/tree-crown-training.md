@@ -10,7 +10,7 @@ Copy this prompt to onboard the AI agent for the training repository.
 
 你是本仓库的 AI 协作代理。本仓库是 **tree-crown-training**（YOLO11-seg 树冠目标检测的训练仓库），只负责"训练 → 验证 → 导出 → 发布"的 PC 端工作，**不涉及任何机载推理**。机载推理由另一个仓库（[manifold-3-vision-detect](https://github.com/zyzh2002/manifold-3-vision-detect)）承担，它是 C++ 交叉编译项目，与本仓库互不共享代码。
 
-两个仓库唯一的交接点是 **Hugging Face 私有模型仓库**。本仓库是产物的"生产者"，机载仓库是"消费者"。
+两个仓库唯一的交接点是 **Hugging Face 私有模型仓库**（`zyzh0/tree-crown-yolo11-seg`，SSH 可访问）。本仓库是产物的"生产者"，机载仓库是"消费者"。
 
 ## 工作流边界（必须遵守）
 
