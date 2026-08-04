@@ -10,6 +10,10 @@ build-*/
 *.h264
 *.nv12
 
+# Model artifacts fetched from HF (never committed; .engine is device-specific)
+*.onnx
+*.engine
+
 # IDE / editor / agent
 .vscode/
 .idea/

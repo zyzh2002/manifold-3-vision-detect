@@ -74,7 +74,9 @@ target_trt: "8.5.2"       # onboard TensorRT version
 ## Handoff to Onboard Repo
 
 - `scripts/fetch_model.sh` downloads ONNX + `model.yaml` from the HF private repo into
-  `.local/models/` (git-ignored), verifying SHA256.
+  `.local/models/` (git-ignored), verifying SHA256. Implemented with host tests
+  (`tests/scripts/test_fetch_model.sh`, fake git fixture), verified against the real HF repo
+  (SSH reachable; fails cleanly when `model.onnx` is not yet published).
 - `TensorRtEngine` reads `model.yaml` for by-name ABI validation.
 - Onboard repo changes are out of scope for this spec; this spec only defines the producer side
   and the handoff contract.

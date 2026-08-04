@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+# Fake `git` for fetch_model.sh tests.
+#
+# Intercepts `git clone` of a HF repo and copies a fixture model tree instead
+# of touching the network. Supports the repo overrides used by the tests:
+#   - repo "missing/onnx"  -> clone tree without model.onnx
+#   - repo "missing/yaml"  -> clone tree without model.yaml
+# Logs each invocation to $FAKE_GIT_LOG (one line per call).
+set -euo pipefail
+
+MODEL_TREE="${FAKE_GIT_MODEL_TREE:?}"
+LOG="${FAKE_GIT_LOG:-/dev/null}"
+
+echo "git $*" >>"${LOG}"
+
+[ "${1:-}" = "clone" ] || { echo "fake git: only clone is supported, got: $*" >&2; exit 1; }
+ALL_ARGS=("$@")
+
+# The last positional argument is the local clone directory.
+local_dir=""
+for arg in "${ALL_ARGS[@]:1}"; do
+    case "$arg" in
+        -q|--branch|--depth|1) ;;
+        --branch=*|--depth=*) ;;
+        *) local_dir="$arg" ;;
+    esac
+done
+[ -n "${local_dir}" ] || { echo "fake git: no local dir" >&2; exit 1; }
+
+# Detect the repo URL to pick the fixture variant.
+repo=""
+for arg in "${ALL_ARGS[@]}"; do
+    case "$arg" in
+        git@hf.co:*)
+            repo="${arg#git@hf.co:}"
+            ;;
+        git@huggingface.co:*)
+            repo="${arg#git@huggingface.co:}"
+            ;;
+    esac
+done
+
+mkdir -p "${local_dir}"
+case "${repo}" in
+    *missing/onnx*)
+        cp "${MODEL_TREE}/model.yaml" "${local_dir}/model.yaml"
+        ;;
+    *missing/yaml*)
+        cp "${MODEL_TREE}/model.onnx" "${local_dir}/model.onnx"
+        ;;
+    *)
+        cp "${MODEL_TREE}/model.onnx" "${local_dir}/model.onnx"
+        cp "${MODEL_TREE}/model.yaml" "${local_dir}/model.yaml"
+        ;;
+esac
+exit 0
