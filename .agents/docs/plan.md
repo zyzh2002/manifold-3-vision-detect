@@ -186,6 +186,9 @@ Select the required product output, audit dependencies, and produce a release ca
 
 - [ ] Select result output based on the product workflow: local structured result, Pilot AI metadata, processed video,
   or another verified transport.
+- [ ] Implement SQLite structured output only after Phase 5B freezes source-frame geometry and model label
+      semantics. The 2026-08-04 implementation plan is superseded; use the corrected spec and the
+      2026-08-05 remediation plan.
 - [ ] Implement only the selected output path.
 - [ ] Classify every runtime dependency as firmware-provided, statically linked, or packaged application data.
 - [ ] Add `scripts/package_dpk.sh` as the repository release wrapper around the PSDK packaging tool.
