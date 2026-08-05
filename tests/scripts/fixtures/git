@@ -1,56 +1,150 @@
 #!/usr/bin/env bash
 # Fake `git` for fetch_model.sh tests.
 #
-# Intercepts `git clone` of a HF repo and copies a fixture model tree instead
-# of touching the network. Supports the repo overrides used by the tests:
-#   - repo "missing/onnx"  -> clone tree without model.onnx
-#   - repo "missing/yaml"  -> clone tree without model.yaml
-# Logs each invocation to $FAKE_GIT_LOG (one line per call).
+# Intercepts the exact git commands fetch_model.sh issues and serves a fixture
+# model tree instead of touching the HF network. Supported commands:
+#   git ls-remote --exit-code --tags <url> refs/tags/<tag> refs/tags/<tag>^{}
+#   git lfs version
+#   git clone -q --branch <tag> --depth 1 <url> <dir>
+#   git -C <dir> rev-parse HEAD
+#   git -C <dir> lfs pull --include=model.onnx --exclude=
+#
+# Controls (environment):
+#   FAKE_GIT_MODEL_TREE     fixture model tree (required)
+#   FAKE_GIT_MISSING_TAG    ls-remote exits 2 for this tag
+#   FAKE_GIT_TRANSPORT_ERROR=1  ls-remote exits 128 with a diagnostic
+#   FAKE_GIT_HEAD_OID        checkout OID (default derived from tag)
+#   FAKE_GIT_ANNOTATED_TAG=1 ls-remote emits a peeled ^{} line
+#   FAKE_GIT_PEELED_OID      peeled OID for annotated tags
+#   FAKE_GIT_NO_LFS=1        `git lfs version` fails
+#   FAKE_GIT_LFS_PULL_ERROR=1 lfs pull fails
+#   FAKE_GIT_LEAVE_POINTER=1 lfs pull does not materialize model.onnx
+#   FAKE_GIT_MISSING_MANIFEST=1 clone omits SHA256SUMS
+#   FAKE_GIT_EXTRA_MANIFEST_ENTRY=1 manifest includes unexpected.bin
+#   FAKE_GIT_TRAVERSAL_MANIFEST=1 manifest names ../model.onnx
+#   FAKE_GIT_BAD_ONNX_HASH=1  manifest ONNX digest changed
+#   FAKE_GIT_BAD_YAML_HASH=1  manifest YAML digest changed
+#   FAKE_GIT_LOG             log file (default /dev/null)
 set -euo pipefail
 
 MODEL_TREE="${FAKE_GIT_MODEL_TREE:?}"
 LOG="${FAKE_GIT_LOG:-/dev/null}"
+HEAD_OID="${FAKE_GIT_HEAD_OID:-1111111111111111111111111111111111111111}"
 
 echo "git $*" >>"${LOG}"
 
-[ "${1:-}" = "clone" ] || { echo "fake git: only clone is supported, got: $*" >&2; exit 1; }
-ALL_ARGS=("$@")
+# Normalize a leading "git -C <dir> <subcommand>" into "git <subcommand> -C <dir>".
+cmd="$1"
+shift
+if [ "${cmd}" = "-C" ]; then
+    cdir="$1"
+    shift
+    cmd="$1"
+    shift
+    set -- "$@" -C "${cdir}"
+fi
 
-# The last positional argument is the local clone directory.
-local_dir=""
-for arg in "${ALL_ARGS[@]:1}"; do
-    case "$arg" in
-        -q|--branch|--depth|1) ;;
-        --branch=*|--depth=*) ;;
-        *) local_dir="$arg" ;;
-    esac
-done
-[ -n "${local_dir}" ] || { echo "fake git: no local dir" >&2; exit 1; }
-
-# Detect the repo URL to pick the fixture variant.
-repo=""
-for arg in "${ALL_ARGS[@]}"; do
-    case "$arg" in
-        git@hf.co:*)
-            repo="${arg#git@hf.co:}"
-            ;;
-        git@huggingface.co:*)
-            repo="${arg#git@huggingface.co:}"
-            ;;
-    esac
-done
-
-mkdir -p "${local_dir}"
-case "${repo}" in
-    *missing/onnx*)
-        cp "${MODEL_TREE}/model.yaml" "${local_dir}/model.yaml"
+case "$cmd" in
+    lfs)
+        if [ "${1:-}" = "version" ]; then
+            [ "${FAKE_GIT_NO_LFS:-0}" = "1" ] && { echo "fake git: lfs unavailable" >&2; exit 1; }
+            echo "git-lfs/3.7.1 (fake)"
+            exit 0
+        fi
+        # git -C <dir> lfs pull --include=model.onnx --exclude=
+        local_dir=""
+        while [ $# -gt 0 ]; do
+            case "$1" in
+                -C) local_dir="$2"; shift 2 ;;
+                --include=*|--exclude=*) shift ;;
+                "pull") shift ;;
+                *) shift ;;
+            esac
+        done
+        [ -n "${local_dir}" ] || { echo "fake git: lfs pull missing -C dir" >&2; exit 1; }
+        if [ "${FAKE_GIT_LFS_PULL_ERROR:-0}" = "1" ]; then
+            echo "fake git: lfs pull failed" >&2
+            exit 1
+        fi
+        if [ "${FAKE_GIT_LEAVE_POINTER:-0}" != "1" ]; then
+            cp "${MODEL_TREE}/model.onnx" "${local_dir}/model.onnx"
+        fi
+        exit 0
         ;;
-    *missing/yaml*)
-        cp "${MODEL_TREE}/model.onnx" "${local_dir}/model.onnx"
+    ls-remote)
+        tag=""
+        while [ $# -gt 0 ]; do
+            case "$1" in
+                --exit-code|--tags) shift ;;
+                refs/tags/*) tag="${1#refs/tags/}"; tag="${tag%%$'\x5e'\{*\}}"; shift ;;
+                *) shift ;;
+            esac
+        done
+        if [ "${FAKE_GIT_TRANSPORT_ERROR:-0}" = "1" ]; then
+            echo "fake git: ssh: Could not resolve hostname" >&2
+            exit 128
+        fi
+        if [ "${FAKE_GIT_MISSING_TAG:-}" = "${tag}" ]; then
+            exit 2
+        fi
+        if [ "${FAKE_GIT_ANNOTATED_TAG:-0}" = "1" ]; then
+            printf '%s\trefs/tags/%s\n' "${HEAD_OID}" "${tag}"
+            printf '%s\trefs/tags/%s^{}\n' "${FAKE_GIT_PEELED_OID:-2222222222222222222222222222222222222222}" "${tag}"
+        else
+            printf '%s\trefs/tags/%s\n' "${HEAD_OID}" "${tag}"
+        fi
+        exit 0
+        ;;
+    clone)
+        local_dir=""
+        while [ $# -gt 0 ]; do
+            case "$1" in
+                -q|--depth) shift ;;
+                1) shift ;;
+                --branch) shift; shift ;;
+                git@hf.co:*|git@huggingface.co:*) shift ;;
+                *) local_dir="$1"; shift ;;
+            esac
+        done
+        [ -n "${local_dir}" ] || { echo "fake git: clone missing dest dir" >&2; exit 1; }
+        mkdir -p "${local_dir}"
+        printf 'version https://git-lfs.github.com/spec/v1\noid sha256:%064d\nsize 20\n' 0 >"${local_dir}/model.onnx"
+        cp "${MODEL_TREE}/model.yaml" "${local_dir}/model.yaml"
+        if [ "${FAKE_GIT_MISSING_MANIFEST:-0}" != "1" ]; then
+            cp "${MODEL_TREE}/SHA256SUMS" "${local_dir}/SHA256SUMS"
+            if [ "${FAKE_GIT_EXTRA_MANIFEST_ENTRY:-0}" = "1" ]; then
+                printf '%s  unexpected.bin\n' "0" >>"${local_dir}/SHA256SUMS"
+            fi
+            if [ "${FAKE_GIT_TRAVERSAL_MANIFEST:-0}" = "1" ]; then
+                printf '%s  ../model.onnx\n' "0000000000000000000000000000000000000000000000000000000000000000" >"${local_dir}/SHA256SUMS"
+            fi
+            if [ "${FAKE_GIT_BAD_ONNX_HASH:-0}" = "1" ]; then
+                awk '{ if ($2=="model.onnx") $1="0000000000000000000000000000000000000000000000000000000000000000"; print }' \
+                    "${local_dir}/SHA256SUMS" >"${local_dir}/SHA256SUMS.new" && mv "${local_dir}/SHA256SUMS.new" "${local_dir}/SHA256SUMS"
+            fi
+            if [ "${FAKE_GIT_BAD_YAML_HASH:-0}" = "1" ]; then
+                awk '{ if ($2=="model.yaml") $1="0000000000000000000000000000000000000000000000000000000000000001"; print }' \
+                    "${local_dir}/SHA256SUMS" >"${local_dir}/SHA256SUMS.new" && mv "${local_dir}/SHA256SUMS.new" "${local_dir}/SHA256SUMS"
+            fi
+        fi
+        printf '%s\n' "${HEAD_OID}" >"${local_dir}/.fake-head"
+        exit 0
+        ;;
+    rev-parse)
+        local_dir=""
+        while [ $# -gt 0 ]; do
+            case "$1" in
+                -C) local_dir="$2"; shift 2 ;;
+                *) shift ;;
+            esac
+        done
+        [ -n "${local_dir}" ] || { echo "fake git: rev-parse missing -C dir" >&2; exit 1; }
+        cat "${local_dir}/.fake-head"
+        exit 0
         ;;
     *)
-        cp "${MODEL_TREE}/model.onnx" "${local_dir}/model.onnx"
-        cp "${MODEL_TREE}/model.yaml" "${local_dir}/model.yaml"
+        echo "fake git: unsupported command: $cmd" >&2
+        exit 1
         ;;
 esac
 exit 0

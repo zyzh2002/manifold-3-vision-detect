@@ -15,3 +15,7 @@ outputs: { name: "output0", dtype: "float32", shape: [1, 43, 25600] }
 classes: [ "crown" ]
 target_trt: "8.5.2"
 YAML
+(
+    cd "$1"
+    sha256sum model.onnx model.yaml > SHA256SUMS
+)

@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# Fake `install` for fetch_model.sh atomic-install tests.
+#
+# Delegates to /usr/bin/install by default. Deterministic fault injection:
+#   FAKE_INSTALL_FAIL_DEST_BASENAME   basename of destination file to fail
+#   FAKE_INSTALL_PAUSE_DEST_BASENAME  basename of destination to pause before copy
+#   FAKE_INSTALL_READY_FILE           touched when paused
+#   FAKE_INSTALL_SLEEP_SECONDS        pause duration
+set -euo pipefail
+
+declare -a args=()
+for a in "$@"; do
+    args+=("$a")
+done
+dest="${args[${#args[@]}-1]}"
+dest_base="$(basename "${dest}")"
+
+if [ "${FAKE_INSTALL_PAUSE_DEST_BASENAME:-}" = "${dest_base}" ]; then
+    touch "${FAKE_INSTALL_READY_FILE:?}"
+    sleep "${FAKE_INSTALL_SLEEP_SECONDS:-5}"
+fi
+if [ "${FAKE_INSTALL_FAIL_DEST_BASENAME:-}" = "${dest_base}" ]; then
+    echo "fake install: failing destination ${dest_base}" >&2
+    exit 1
+fi
+
+exec /usr/bin/install "${args[@]}"

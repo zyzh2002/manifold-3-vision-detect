@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+# Fake `mv` for fetch_model.sh atomic-install tests.
+#
+# Delegates to /usr/bin/mv by default. Deterministic fault injection:
+#   FAKE_MV_FAIL_DEST               exact destination to fail
+#   FAKE_MV_PAUSE_BEFORE_DEST       exact dest to pause before the real move
+#   FAKE_MV_PAUSE_AFTER_DEST        exact dest to pause after the real move
+#   FAKE_MV_READY_FILE              touched when paused
+#   FAKE_MV_SLEEP_SECONDS           pause duration
+set -euo pipefail
+
+declare -a args=()
+for a in "$@"; do
+    args+=("$a")
+done
+dest="${args[${#args[@]}-1]}"
+
+if [ "${FAKE_MV_PAUSE_BEFORE_DEST:-}" = "${dest}" ]; then
+    touch "${FAKE_MV_READY_FILE:?}"
+    sleep "${FAKE_MV_SLEEP_SECONDS:-5}"
+fi
+if [ "${FAKE_MV_FAIL_DEST:-}" = "${dest}" ]; then
+    echo "fake mv: failing destination ${dest}" >&2
+    exit 1
+fi
+
+/usr/bin/mv "${args[@]}"
+rc=$?
+if [ "${FAKE_MV_PAUSE_AFTER_DEST:-}" = "${dest}" ]; then
+    touch "${FAKE_MV_READY_FILE:?}"
+    sleep "${FAKE_MV_SLEEP_SECONDS:-5}"
+fi
+exit "${rc}"
