@@ -12,6 +12,7 @@
 | [architecture.md](architecture.md) | 系统边界、数据流、模块边界与关键接口 | 理解代码结构 / 改代码前 |
 | [build-environment.md](build-environment.md) | 工具链、sysroot、ABI、链接与验证规则 | 处理构建环境 / 交叉编译问题 |
 | [development.md](development.md) | 分支策略、提交规范、测试、代码风格、联调流程 | 开始贡献代码前 |
+| [handoffs/tree-crown-training-agent-prompt.md](handoffs/tree-crown-training-agent-prompt.md) | 训练侧仓库的交接提示词（模型训练/发布） | 维护训练侧仓库 / 交接模型训练工作 |
 
 ## 阅读路径
 

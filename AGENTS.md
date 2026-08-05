@@ -281,10 +281,12 @@ What exists:
   placeholders when absent.
 - `scripts/generate_dummy_onnx.py` — generates the synthetic test ONNX (run via `uv run --with onnx`).
 - `scripts/run_inference_smoke.sh` — target-side synthetic engine smoke test.
-- `scripts/fetch_model.sh` — fetches the trained `model.onnx` + `model.yaml` from the HF private repo
-  (`zyzh0/tree-crown-yolo11-seg`, SSH) into `.local/models/` for the Phase 5B real-model path. Version-pinned
-  via `--version <tag>`; the runtime `.engine` is built on-device with `trtexec` and never committed. The
-  training-side producer repo is `zyzh2002/tree-crown-yolo11-seg`; see `.agents/docs/handoffs/tree-crown-training.md`.
+- `scripts/fetch_model.sh` — fetches a versioned model release (`model.onnx` + `model.yaml` + `SHA256SUMS`)
+  from the HF private repo `zyzh0/tree-crown-yolo11-seg` over SSH. Requires an immutable `--version <tag>`;
+  materializes the ONNX through Git LFS, verifies the publisher checksums, and atomically installs the release
+  under `.local/models/releases/<tag>/` with `.local/models/current` pointing at it. The runtime `.engine` is
+  built on-device with `trtexec` and never committed. The training-side producer repo is
+  `zyzh2002/tree-crown-yolo11-seg`; see `docs/handoffs/tree-crown-training-agent-prompt.md`.
 - Host unit tests: `tests/core/`, `tests/capture/`, `tests/inference/`, `tests/scripts/` (run with the
   host-debug preset + ctest); cross ELF checks in `tests/toolchain/` (CXX set includes `libm.so.6`
   because the device-derived sysroot libstdc++ carries that DT_NEEDED).

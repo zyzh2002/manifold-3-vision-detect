@@ -58,26 +58,47 @@ tree-crown-training/
 
 ## Model Artifact Contract (model.yaml)
 
-`publish.py` uploads `model.yaml` alongside the ONNX. It is the machine-readable ABI contract
-for the onboard `TensorRtEngine` (replaces the hardcoded `synthetic_engine_contract.h`):
+`publish.py` uploads `model.yaml` alongside the ONNX. It is artifact metadata that records
+the transport contract; the semantic inference ABI is defined in Phase 5B after a real ONNX
+is exported and compared. `outputs` is a list, not a single mapping:
 
 ```yaml
+schema_version: 1
 model_name: tree-crown-yolo11-seg
-version: "<tag>"
-input: { name: "images", dtype: "float32", shape: [1, 3, 1280, 1280] }
-outputs: { name: "...", dtype: "...", shape: [...] }   # per actual export
-classes: [ ... ]          # identical to data.yaml
-train_commit: "<git sha>" # traceable to training config
-target_trt: "8.5.2"       # onboard TensorRT version
+version: v1.0.0
+input:
+  name: images
+  dtype: float32
+  shape: [1, 3, 1280, 1280]
+outputs:
+  - name: output0
+    dtype: float32
+    shape: [1, "channels", "anchors"]
+classes:
+  - tree-crown
+train_commit: "<40-character git sha>"
+target_trt: "8.5.2"
 ```
+
+Final species/age/mask semantics, output layout, preprocessing/letterbox rules, and label
+domains remain Phase 5B work and are not fixed by this file.
 
 ## Handoff to Onboard Repo
 
-- `scripts/fetch_model.sh` downloads ONNX + `model.yaml` from the HF private repo into
-  `.local/models/` (git-ignored), verifying SHA256. Implemented with host tests
-  (`tests/scripts/test_fetch_model.sh`, fake git fixture), verified against the real HF repo
-  (SSH reachable; fails cleanly when `model.onnx` is not yet published).
-- `TensorRtEngine` reads `model.yaml` for by-name ABI validation.
+Each HF release tag is an immutable three-file release:
+
+```text
+model.onnx
+model.yaml
+SHA256SUMS
+```
+
+- `scripts/fetch_model.sh --version <tag>` resolves the exact tag commit, materializes the
+  ONNX through Git LFS, verifies `SHA256SUMS`, and atomically installs the release under
+  `.local/models/releases/<tag>/` with `.local/models/current -> releases/<tag>` (git-ignored).
+- Phase 5B will define and implement the `TensorRtEngine` contract after a real exported ONNX
+  is available. The current `TensorRtEngine` accepts only `synthetic_engine_contract.h` and
+  does not parse `model.yaml`.
 - Onboard repo changes are out of scope for this spec; this spec only defines the producer side
   and the handoff contract.
 
